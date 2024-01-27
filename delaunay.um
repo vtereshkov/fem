@@ -1,0 +1,160 @@
+// Bowyer-Watson method for Delaunay triangulation
+
+import (
+	"th.um"
+)
+
+type (
+    Edge = [2]int
+    Triangle* = [3]int
+    TriangleSet* = map[Triangle]bool
+    Polyline* = []int
+)
+
+fn det(a: [3][3]real): real {
+	return a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
+           a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
+           a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
+}
+
+fn isInCircumCircle(pt: th.Vf2, tri: [3]th.Vf2): bool {
+    da := tri[0].sub(pt)
+    db := tri[1].sub(pt)
+    dc := tri[2].sub(pt)
+
+    sqr := fn (x: real): real {return x * x}
+
+    d := det({{da.x, da.y, sqr(da.x) + sqr(da.y)},
+              {db.x, db.y, sqr(db.x) + sqr(db.y)},
+              {dc.x, dc.y, sqr(dc.x) + sqr(dc.y)}})    
+    
+    return d > 0.0
+}
+
+fn isClockwise(tri: [3]th.Vf2): bool {
+    a := tri[1].sub(tri[0])
+    b := tri[2].sub(tri[1])
+
+    d := a.x * b.y - a.y * b.x
+    return d < 0.0
+}
+
+fn (tri: ^Triangle) hasVertex(i: int): bool {
+    return i == tri[0] || i == tri[1] || i == tri[2]
+}
+
+fn (tri: ^Triangle) hasEdge(edge: Edge): bool {
+    return tri.hasVertex(edge[0]) && tri.hasVertex(edge[1]) 
+}
+
+fn (tri: ^Triangle) hasEdgeInOppositeDir(edge: Edge): bool {
+    return (tri[0] == edge[1] && tri[1] == edge[0]) ||
+           (tri[1] == edge[1] && tri[2] == edge[0]) ||
+           (tri[2] == edge[1] && tri[0] == edge[0]) 
+}
+
+fn (tri: ^Triangle) getEdges(): [3]Edge {
+    return {{tri[0], tri[1]}, {tri[1], tri[2]}, {tri[2], tri[0]}}
+}
+
+fn getBadTris(pt: th.Vf2, pts: []th.Vf2, tris: TriangleSet): TriangleSet {
+    badTris := TriangleSet{}
+    for tri, exists in tris {
+        if exists && isInCircumCircle(pt, {pts[tri[0]], pts[tri[1]], pts[tri[2]]}) {
+            badTris[tri] = true
+        }
+    }
+    return badTris
+}
+
+fn getBoundary(tris: TriangleSet): []Edge {
+    boundaryEdges := []Edge{}
+
+    for tri, exists in tris {
+        if !exists {continue}
+
+        edges := tri.getEdges()
+
+        for _, edge in edges {
+            isBoundaryEdge := true
+
+            for otherTri, exists in tris {
+                if exists && otherTri != tri && otherTri.hasEdge(edge) {
+                    isBoundaryEdge = false
+                    break
+                }
+            }
+
+            if isBoundaryEdge {
+                boundaryEdges = append(boundaryEdges, edge)
+            }                
+        }
+    }
+
+    return boundaryEdges    
+}
+
+fn triangulate*(pts: []th.Vf2): TriangleSet {
+	// Add a fake super-triangle
+    const BIG_VAL = 10000.0
+
+	ptsWithSuper := append(copy(pts), []th.Vf2{{BIG_VAL, BIG_VAL}, {-BIG_VAL, BIG_VAL}, {0.0, -BIG_VAL}})
+	superTri := Triangle{len(pts), len(pts) + 1, len(pts) + 2}
+	
+    tris := TriangleSet{superTri: true}
+
+	// Add original points one by one
+    for ptIndex, pt in pts {
+		// Find triangles that get bad (i.e., non-Delaunay) after adding the point
+        badTris := getBadTris(pt, ptsWithSuper, tris)
+
+        // Find a bounding polygon for all bad triangles
+        badPolyEdges := getBoundary(badTris)
+
+        // Remove bad triangles from triangulation
+        for badTri, exists in badTris {
+            if exists {
+                tris[badTri] = false
+            }
+        }
+
+        // Retriangulate bad triangles' bounding polygon
+        for _, badPolyEdge in badPolyEdges {
+            // Create a triangle from the bounding polygon edge and the new point
+            tri := Triangle{badPolyEdge[0], badPolyEdge[1], ptIndex}
+
+            // Make sure the triangle is counter-clockwise
+            if isClockwise({ptsWithSuper[tri[0]], ptsWithSuper[tri[1]], ptsWithSuper[tri[2]]}) {
+                tri[0], tri[1] = tri[1], tri[0]
+            }
+            
+            tris[tri] = true
+        }              
+	}
+
+    // Remove super-triangle parts from triangulation
+    for tri, exists in tris {
+        if exists && (tri.hasVertex(superTri[0]) || tri.hasVertex(superTri[1]) || tri.hasVertex(superTri[2])) {
+            tris[tri] = false
+        } 
+    }     
+
+    return tris
+}
+
+fn trim*(tris: ^TriangleSet, boundary: Polyline) {
+    // Trim the triangulated convex hull against the boundary
+    for tri, exists in tris {
+        if !exists {continue}
+
+        // Remove triangle if one of its edges coincides with one of the boundary segments, but in opposite direction
+        for i, pt1 := 0, boundary[len(boundary) - 1]; i < len(boundary); i++ {
+            pt2 := boundary[i]
+            if tri.hasEdgeInOppositeDir({pt1, pt2}) {
+                tris[tri] = false
+                break
+            }
+            pt1 = pt2
+        }   
+    }
+}

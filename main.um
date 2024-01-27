@@ -1,0 +1,68 @@
+import (
+    "window.um"
+    "th.um"
+    "ui.um"
+    "input.um"
+    "font.um"
+    "rect.um"
+
+    "editor.um"
+)
+
+fn init*() {
+    window.setup("I LOVE FEM", 1300, 600)
+
+    style := ui.getDefaultStyle()
+    style.ft = font.load("sans.ttf", 16, font.filterLinear)
+    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 100, 10000), style))
+    
+    ed := new(editor.Editor)
+    ed.init()
+
+    mousePos := new(th.Vf2)
+
+    const captions = [6]str{
+        "Add Boundary",
+        "Add Hole",
+        "Add Points",
+        "Edit Point",
+        "Delete Point",
+        "Calculate"
+    }
+
+    window.onFrame.register(|ed, toolbarGui, mousePos| {
+        window.setViewport(window.getDims())
+
+        layout := ui.LayoutFn |ed| {
+            gui.box({dimension: 20, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
+            {   
+                for cmd, caption in captions {
+                    if gui.qbutton(caption) {
+                        ed.startCmd(cmd)
+                    }
+                }
+                gui.label("> " + captions[ed.cmd])
+            }
+            gui.popContainer()
+        }
+
+        toolbarGui.eval(layout)
+
+        if input.isJustPressed(input.mouse1) {
+            ed.processLeftClick(input.getMousePos())
+        } else if input.isJustPressed(input.mouse3) {
+            ed.processRightClick()
+        } else if input.isPressed(input.mouse1) {
+            ed.processLeftDrag(input.getMousePos())
+        } else if input.isPressed(input.mouse2) {
+            ed.processMidDrag(input.getMousePos().sub(mousePos^))
+        } else if input.getMouseScroll().y != 0.0 {
+            ed.processWheel(input.getMousePos(), input.getMouseScroll().y)
+        }
+
+        mousePos^ = input.getMousePos()
+
+        ed.draw(window.getDims())
+        toolbarGui.draw(layout)
+    })
+}

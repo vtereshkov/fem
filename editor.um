@@ -1,0 +1,253 @@
+import (
+	"th.um"
+	"canvas.um"
+
+	"delaunay.um"
+)
+
+type (
+	Poly = struct {
+		vert: []int
+		isHole: bool
+	}
+
+	Triangle = struct {
+		vert: [3]int
+	}
+
+	Editor* = struct {
+		cmd: int
+
+		pt: []th.Vf2
+		poly: []Poly
+		tri: []Triangle
+
+		selectedPt: int
+		curPoly: Poly
+
+		cam: th.Transform
+	}
+)
+
+const (
+	CMD_ENTER_BOUNDARY* = 0
+	CMD_ENTER_HOLE*
+	CMD_ENTER_POINTS*
+	CMD_EDIT_POINT*
+	CMD_DELETE_POINT*
+	CMD_CALCULATE*	
+)
+
+const (
+	POINT_SIZE = 10
+	LINE_WIDTH = 3
+)
+
+fn inverse(t: th.Transform): th.Transform {
+	return {p: {-t.p.x / t.s.x, -t.p.y / t.s.y}, s: {1.0 / t.s.x, 1.0 / t.s.y}}
+}
+
+fn (poly: ^Poly) reverse() {
+	for i, j := 0, len(poly.vert) - 1; i < j; i++ {
+		poly.vert[i], poly.vert[j] = poly.vert[j], poly.vert[i]
+		j--
+	}
+}
+
+fn (ed: ^Editor) isClockwise(poly: Poly): bool {
+	sum := 0.0
+	for i, pt1 := 0, ed.pt[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
+		pt2 := ed.pt[poly.vert[i]]
+		sum += (pt2.x - pt1.x) * (pt2.y + pt1.y)
+		pt1 = pt2
+	}
+	return sum > 0.0
+}
+
+fn (ed: ^Editor) findPoint(pos: th.Vf2): int {
+	for i, pt in ed.pt {
+		if fabs((pos.x - pt.x) * ed.cam.s.x) < POINT_SIZE && fabs((pos.y - pt.y) * ed.cam.s.y) < POINT_SIZE {
+			return i
+		}
+	}
+	return -1
+}
+
+fn (ed: ^Editor) deleteSelectedPoint() {
+	// Detect polygon containing the point, decrement other point indices
+	polyToDelete := -1
+	for polyIndex, poly in ed.poly {
+		for vertIndex, vert in poly.vert {
+			if vert == ed.selectedPt {
+				polyToDelete = polyIndex
+				break
+			} else if vert > ed.selectedPt {
+				poly.vert[vertIndex]--
+			}
+		}
+	}
+
+	// Delete polygon containing the point
+	if polyToDelete >= 0 {
+		ed.poly = delete(ed.poly, polyToDelete)
+	}
+
+	// Delete point
+	ed.pt = delete(ed.pt, ed.selectedPt)
+	ed.selectedPt = -1
+}
+
+fn (ed: ^Editor) triangulate() {
+	triangles := delaunay.triangulate(ed.pt)
+
+	for _, poly in ed.poly {
+		delaunay.trim(&triangles, poly.vert)		
+	}
+
+	ed.tri = []Triangle{}
+	for tri, exists in triangles {
+		if exists {
+			ed.tri = append(ed.tri, Triangle{tri})			
+		}
+	}
+}
+
+fn (ed: ^Editor) init*() {
+	ed.cam = th.mkTransform({0, 0}, {1, -1})
+	ed.cmd = CMD_EDIT_POINT
+}
+
+fn (ed: ^Editor) endCmd*() {
+	if ed.cmd == CMD_DELETE_POINT {
+		if ed.selectedPt >= 0 {
+			ed.deleteSelectedPoint()
+		}
+	} else if (ed.cmd == CMD_ENTER_BOUNDARY || ed.cmd == CMD_ENTER_HOLE) && len(ed.curPoly.vert) > 2 {
+		if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
+			ed.curPoly.reverse()
+		}
+		ed.poly = append(ed.poly, ed.curPoly)
+	}
+
+	ed.selectedPt = -1
+	ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
+}
+
+fn (ed: ^Editor) startCmd*(cmd: int) {
+	ed.endCmd()
+	ed.cmd = cmd
+	if ed.cmd == CMD_ENTER_BOUNDARY || ed.cmd == CMD_ENTER_HOLE {
+		ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
+	} else if ed.cmd == CMD_CALCULATE {
+		ed.triangulate() 
+	}
+}
+
+fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
+	worldPos := pos.transformed(inverse(ed.cam))
+
+	switch ed.cmd {
+		case CMD_EDIT_POINT, CMD_DELETE_POINT: 
+			ed.selectedPt = ed.findPoint(worldPos)
+
+		case CMD_ENTER_POINTS:
+			ed.pt = append(ed.pt, worldPos)
+
+		case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+			if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
+				ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
+			} else {			
+				ed.pt = append(ed.pt, worldPos)
+				ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pt) - 1)
+			}
+	}
+}
+
+fn (ed: ^Editor) processRightClick*() {
+	ed.endCmd()
+}
+
+fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
+	if ed.cmd == CMD_EDIT_POINT && ed.selectedPt >= 0 {
+		worldPos := pos.transformed(inverse(ed.cam))		
+		ed.pt[ed.selectedPt] = worldPos		
+	}
+}
+
+fn (ed: ^Editor) processMidDrag*(delta: th.Vf2) {
+	ed.cam.p = ed.cam.p.add(delta)
+}
+
+fn (ed: ^Editor) processWheel*(pos: th.Vf2, scroll: real32) {
+	scale := (1 + 0.1 * scroll) * ed.cam.s.x
+	if scale > 10.0 {scale = 10.0}
+	if scale <  0.1 {scale =  0.1}
+
+	ed.cam.p = ed.cam.p.sub(pos.transformed(inverse(ed.cam)).mul({scale - ed.cam.s.x, -scale - ed.cam.s.y}))
+	ed.cam.s = {scale, -scale}
+}
+
+fn (ed: ^Editor) drawBackground(windowSize: th.Vf2) {
+	canvas.drawRect(0x222222FF, {-10, -10, windowSize.x + 20, windowSize.y + 20})
+}
+
+fn (ed: ^Editor) drawPolygons() {
+	for _, poly in ed.poly {
+		clr := poly.isHole ? th.blue : th.white
+
+		for i, pt1 := 0, ed.pt[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
+			pt2 := ed.pt[poly.vert[i]]
+			canvas.drawLine(clr, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
+			pt1 = pt2
+		}
+	}
+
+	// Draw current polygon
+	if len(ed.curPoly.vert) > 0 {
+		for i, pt1 := 0, ed.pt[ed.curPoly.vert[0]]; i < len(ed.curPoly.vert) - 1; i++ {
+			pt2 := ed.pt[ed.curPoly.vert[i + 1]]
+			canvas.drawLine(th.red, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
+			pt1 = pt2
+		}
+	}	
+}
+
+fn (ed: ^Editor) drawPoints() {
+	for i, pt in ed.pt {
+		clr := i == ed.selectedPt ? th.red : th.green
+		screenPt := pt.transformed(ed.cam)
+		canvas.drawQuad(clr, {
+			screenPt.add({-POINT_SIZE / 2, -POINT_SIZE / 2}), 
+			screenPt.add({ POINT_SIZE / 2, -POINT_SIZE / 2}), 
+			screenPt.add({ POINT_SIZE / 2,  POINT_SIZE / 2}), 
+			screenPt.add({-POINT_SIZE / 2,  POINT_SIZE / 2})
+		})
+	}
+}
+
+fn (ed: ^Editor) drawTriangles() {
+	for _, tri in ed.tri {
+		screenPt := [3]th.Vf2{
+			ed.pt[tri.vert[0]].transformed(ed.cam),
+			ed.pt[tri.vert[1]].transformed(ed.cam),
+			ed.pt[tri.vert[2]].transformed(ed.cam)
+		}
+		
+		canvas.drawQuad(0x555555FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
+		canvas.drawLine(th.white, screenPt[0], screenPt[1], 1)
+		canvas.drawLine(th.white, screenPt[1], screenPt[2], 1)
+		canvas.drawLine(th.white, screenPt[2], screenPt[0], 1)
+	}
+}
+
+fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
+	ed.drawBackground(windowSize)	
+
+	if ed.cmd == CMD_CALCULATE {
+		ed.drawTriangles()
+	} else {
+		ed.drawPolygons()
+		ed.drawPoints()
+	}
+}
+
