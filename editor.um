@@ -35,7 +35,8 @@ const (
 	CMD_ENTER_POINTS*
 	CMD_EDIT_POINT*
 	CMD_DELETE_POINT*
-	CMD_CALCULATE*	
+	CMD_CALCULATE*
+	CMD_CLEAR*	
 )
 
 const (
@@ -118,15 +119,19 @@ fn (ed: ^Editor) init*() {
 }
 
 fn (ed: ^Editor) endCmd*() {
-	if ed.cmd == CMD_DELETE_POINT {
-		if ed.selectedPt >= 0 {
-			ed.deleteSelectedPoint()
-		}
-	} else if (ed.cmd == CMD_ENTER_BOUNDARY || ed.cmd == CMD_ENTER_HOLE) && len(ed.curPoly.vert) > 2 {
-		if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
-			ed.curPoly.reverse()
-		}
-		ed.poly = append(ed.poly, ed.curPoly)
+	switch ed.cmd {
+		case CMD_DELETE_POINT:
+			if ed.selectedPt >= 0 {
+				ed.deleteSelectedPoint()
+			}
+
+		case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+			if len(ed.curPoly.vert) > 2 {
+				if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
+					ed.curPoly.reverse()
+				}
+				ed.poly = append(ed.poly, ed.curPoly)
+			}
 	}
 
 	ed.selectedPt = -1
@@ -136,11 +141,18 @@ fn (ed: ^Editor) endCmd*() {
 fn (ed: ^Editor) startCmd*(cmd: int) {
 	ed.endCmd()
 	ed.cmd = cmd
-	if ed.cmd == CMD_ENTER_BOUNDARY || ed.cmd == CMD_ENTER_HOLE {
-		ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
-	} else if ed.cmd == CMD_CALCULATE {
-		ed.triangulate() 
-	}
+	
+	switch ed.cmd {
+		case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+			ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
+
+		case CMD_CALCULATE:
+			ed.triangulate()
+
+		case CMD_CLEAR:
+			ed^ = Editor{}
+			ed.init() 
+	} 
 }
 
 fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {

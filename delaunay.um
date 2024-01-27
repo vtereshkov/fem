@@ -47,10 +47,10 @@ fn (tri: ^Triangle) hasEdge(edge: Edge): bool {
     return tri.hasVertex(edge[0]) && tri.hasVertex(edge[1]) 
 }
 
-fn (tri: ^Triangle) hasEdgeInOppositeDir(edge: Edge): bool {
-    return (tri[0] == edge[1] && tri[1] == edge[0]) ||
-           (tri[1] == edge[1] && tri[2] == edge[0]) ||
-           (tri[2] == edge[1] && tri[0] == edge[0]) 
+fn (tri: ^Triangle) hasDirectedEdge(edge: Edge): bool {
+    return (tri[0] == edge[0] && tri[1] == edge[1]) ||
+           (tri[1] == edge[0] && tri[2] == edge[1]) ||
+           (tri[2] == edge[0] && tri[0] == edge[1]) 
 }
 
 fn (tri: ^Triangle) getEdges(): [3]Edge {
@@ -150,7 +150,7 @@ fn trim*(tris: ^TriangleSet, boundary: Polyline) {
         // Remove triangle if one of its edges coincides with one of the boundary segments, but in opposite direction
         for i, pt1 := 0, boundary[len(boundary) - 1]; i < len(boundary); i++ {
             pt2 := boundary[i]
-            if tri.hasEdgeInOppositeDir({pt1, pt2}) {
+            if tri.hasDirectedEdge({pt2, pt1}) {
                 tris[tri] = false
                 break
             }

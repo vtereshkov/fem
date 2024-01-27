@@ -21,13 +21,14 @@ fn init*() {
 
     mousePos := new(th.Vf2)
 
-    const captions = [6]str{
+    const captions = [7]str{
         "Add Boundary",
         "Add Hole",
         "Add Points",
         "Edit Point",
         "Delete Point",
-        "Calculate"
+        "Calculate",
+        "Clear"
     }
 
     window.onFrame.register(|ed, toolbarGui, mousePos| {
