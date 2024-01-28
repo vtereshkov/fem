@@ -187,6 +187,7 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Poly) {
 
         edges := tri.getEdges()
 
+        // If a triangle edge coincides with a boundary segment, but in the reversed direction, the triangle is outside the boundary 
         for _, edge in edges {
             if boundary.hasEdge({edge[1], edge[0]}, true) {
                 removeRecursively(tri, tris, neighbors, boundary)
