@@ -1,5 +1,3 @@
-// Bowyer-Watson method for Delaunay triangulation
-
 import (
 	"th.um"
 )
@@ -8,8 +6,8 @@ type (
     Edge = [2]int
     Triangle* = [3]int
     TriangleSet* = map[Triangle]bool
-    TriangleNeighbors* = map[Triangle][3]Triangle
-    Polyline* = []int
+    TriangleNeighbors = map[Triangle][3]Triangle
+    Poly* = []int
 )
 
 fn det(a: [3][3]real): real {
@@ -52,7 +50,7 @@ fn (tri: ^Triangle) getEdges(): [3]Edge {
     return {{tri[0], tri[1]}, {tri[1], tri[2]}, {tri[2], tri[0]}}
 }
 
-fn (poly: ^Polyline) hasEdge(edge: Edge, directed: bool = false): bool {
+fn (poly: ^Poly) hasEdge(edge: Edge, directed: bool = false): bool {
     for i, pt1 := 0, poly[len(poly^) - 1]; i < len(poly^); i++ {
         pt2 := poly[i]
         if (pt1 == edge[0] && pt2 == edge[1]) || (!directed && pt1 == edge[1] && pt2 == edge[0]) {
@@ -100,7 +98,7 @@ fn getBoundary(tris: TriangleSet): []Edge {
     return boundaryEdges    
 }
 
-fn getNeighbors*(tris: TriangleSet): TriangleNeighbors {
+fn getNeighbors(tris: TriangleSet): TriangleNeighbors {
     neighbors := TriangleNeighbors{}
 
     for tri, exists in tris {
@@ -121,7 +119,9 @@ fn getNeighbors*(tris: TriangleSet): TriangleNeighbors {
     return neighbors
 }
 
-fn triangulate*(pts: []th.Vf2): TriangleSet {
+fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
+    // Bowyer-Watson method for Delaunay triangulation
+
 	// Add a fake super-triangle
     const BIG_VAL = 10000.0
 
@@ -169,7 +169,7 @@ fn triangulate*(pts: []th.Vf2): TriangleSet {
     return tris
 }
 
-fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Polyline) {
+fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Poly) {
     edges := root.getEdges()    
     tris[root] = false
 
@@ -180,7 +180,7 @@ fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeig
     }    
 }
 
-fn trim*(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Polyline) {
+fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Poly) {
     // Trim the triangulated convex hull against the boundary
     for tri, exists in tris {
         if !exists {continue}
@@ -195,3 +195,15 @@ fn trim*(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Polyline) {
         }
     }
 }
+
+fn triangulate*(pts: []th.Vf2, boundaries: []Poly): TriangleSet {
+    triangles := triangulateConvexHull(pts)
+    neighbors := getNeighbors(triangles)
+
+    for _, boundary in boundaries {
+        trim(&triangles, neighbors, boundary)
+    }
+
+    return triangles
+} 
+

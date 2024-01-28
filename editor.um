@@ -99,12 +99,12 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 }
 
 fn (ed: ^Editor) triangulate() {
-	triangles := delaunay.triangulate(ed.pt)
-	neighbors := delaunay.getNeighbors(triangles)
+	boundaries := []delaunay.Poly{}
+	for i, poly in ed.poly {
+		boundaries = append(boundaries, poly.vert)	
+	}	
 
-	for _, poly in ed.poly {
-		delaunay.trim(&triangles, neighbors, poly.vert)		
-	}
+	triangles := delaunay.triangulate(ed.pt, boundaries)
 
 	ed.tri = []Triangle{}
 	for tri, exists in triangles {
