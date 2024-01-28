@@ -26,6 +26,8 @@ type (
         curPoly: Poly
 
         cam: th.Transform
+
+        statusMsg: str
     }
 )
 
@@ -104,7 +106,8 @@ fn (ed: ^Editor) triangulate() {
         boundaries = append(boundaries, poly.vert)  
     }   
 
-    triangles := delaunay.triangulate(ed.pt, boundaries)
+    triangles, ok := delaunay.triangulate(ed.pt, boundaries)
+    ed.statusMsg = ok ? "" : "Bad boundary"
 
     ed.tri = []Triangle{}
     for tri, exists in triangles {
@@ -137,6 +140,7 @@ fn (ed: ^Editor) endCmd*() {
 
     ed.selectedPt = -1
     ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
+    ed.statusMsg = ""
 }
 
 fn (ed: ^Editor) startCmd*(cmd: int) {

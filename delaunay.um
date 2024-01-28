@@ -180,31 +180,43 @@ fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeig
     }    
 }
 
-fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Poly) {
+fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Poly): bool {
     // Trim the triangulated convex hull against the boundary
+
+    triEdgesInBoundary := []Edge{}
+
     for tri, exists in tris {
         if !exists {continue}
 
         edges := tri.getEdges()
 
-        // If a triangle edge coincides with a boundary segment, but in the reversed direction, the triangle is outside the boundary 
         for _, edge in edges {
+            // Self-check: any boundary segment must coincide with some edge of a triangle lying inside the boundary
+            if boundary.hasEdge(edge, true) {
+                triEdgesInBoundary = append(triEdgesInBoundary, edge)
+            }
+
+            // If a triangle edge coincides with a boundary segment, but in the reversed direction, the triangle is outside the boundary
             if boundary.hasEdge({edge[1], edge[0]}, true) {
                 removeRecursively(tri, tris, neighbors, boundary)
                 break
             }
         }
     }
+
+    return len(triEdgesInBoundary) == len(boundary)
 }
 
-fn triangulate*(pts: []th.Vf2, boundaries: []Poly): TriangleSet {
+fn triangulate*(pts: []th.Vf2, boundaries: []Poly): (TriangleSet, bool) {
     triangles := triangulateConvexHull(pts)
     neighbors := getNeighbors(triangles)
 
     for _, boundary in boundaries {
-        trim(&triangles, neighbors, boundary)
+        if !trim(&triangles, neighbors, boundary) {
+            return TriangleSet{}, false
+        }
     }
 
-    return triangles
+    return triangles, true
 } 
 

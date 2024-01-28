@@ -14,7 +14,7 @@ fn init*() {
 
     style := ui.getDefaultStyle()
     style.ft = font.load("sans.ttf", 16, font.filterLinear)
-    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 70, 10000), style))
+    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 80, 10000), style))
     
     ed := new(editor.Editor)
     ed.init()
@@ -35,11 +35,11 @@ fn init*() {
         window.setViewport(window.getDims())
 
         layout := ui.LayoutFn |ed| {
-            gui.box({dimension: 20, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
+            gui.box({dimension: 30, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
                 for cmd, caption in captions {
                     isButtonPressed := !gui.isEval && ed.cmd == cmd
-                    
+
                     if isButtonPressed {
                         pressedStyle := gui.getStyle()^
                         pressedStyle.posBox = gui.getStyle().negBox
@@ -47,7 +47,7 @@ fn init*() {
                         gui.pushStyle(pressedStyle)
                     }
 
-                    if gui.qbutton(caption) {
+                    if gui.qbutton(caption) && ed.cmd != cmd {
                         ed.startCmd(cmd)
                     }
 
@@ -55,6 +55,7 @@ fn init*() {
                         gui.popStyle()
                     }                    
                 }
+                gui.label(ed.statusMsg)
             }
             gui.popContainer()
         }
