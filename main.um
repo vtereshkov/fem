@@ -38,11 +38,23 @@ fn init*() {
             gui.box({dimension: 20, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
                 for cmd, caption in captions {
+                    isButtonPressed := !gui.isEval && ed.cmd == cmd
+                    
+                    if isButtonPressed {
+                        pressedStyle := gui.getStyle()^
+                        pressedStyle.posBox = gui.getStyle().negBox
+                        pressedStyle.negBox = gui.getStyle().posBox
+                        gui.pushStyle(pressedStyle)
+                    }
+
                     if gui.qbutton(caption) {
                         ed.startCmd(cmd)
                     }
+
+                    if isButtonPressed {
+                        gui.popStyle()
+                    }                    
                 }
-                gui.label("> " + captions[ed.cmd])
             }
             gui.popContainer()
         }
