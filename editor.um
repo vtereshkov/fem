@@ -100,9 +100,10 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 
 fn (ed: ^Editor) triangulate() {
 	triangles := delaunay.triangulate(ed.pt)
+	neighbors := delaunay.getNeighbors(triangles)
 
 	for _, poly in ed.poly {
-		delaunay.trim(&triangles, poly.vert)		
+		delaunay.trim(&triangles, neighbors, poly.vert)		
 	}
 
 	ed.tri = []Triangle{}

@@ -14,7 +14,7 @@ fn init*() {
 
     style := ui.getDefaultStyle()
     style.ft = font.load("sans.ttf", 16, font.filterLinear)
-    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 100, 10000), style))
+    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 60, 10000), style))
     
     ed := new(editor.Editor)
     ed.init()
@@ -22,11 +22,11 @@ fn init*() {
     mousePos := new(th.Vf2)
 
     const captions = [7]str{
-        "Add Boundary",
-        "Add Hole",
-        "Add Points",
-        "Edit Point",
-        "Delete Point",
+        "Boundary",
+        "Hole",
+        "Points",
+        "Edit",
+        "Delete",
         "Calculate",
         "Clear"
     }

@@ -8,6 +8,7 @@ type (
     Edge = [2]int
     Triangle* = [3]int
     TriangleSet* = map[Triangle]bool
+    TriangleNeighbors* = map[Triangle][3]Triangle
     Polyline* = []int
 )
 
@@ -47,14 +48,19 @@ fn (tri: ^Triangle) hasEdge(edge: Edge): bool {
     return tri.hasVertex(edge[0]) && tri.hasVertex(edge[1]) 
 }
 
-fn (tri: ^Triangle) hasDirectedEdge(edge: Edge): bool {
-    return (tri[0] == edge[0] && tri[1] == edge[1]) ||
-           (tri[1] == edge[0] && tri[2] == edge[1]) ||
-           (tri[2] == edge[0] && tri[0] == edge[1]) 
-}
-
 fn (tri: ^Triangle) getEdges(): [3]Edge {
     return {{tri[0], tri[1]}, {tri[1], tri[2]}, {tri[2], tri[0]}}
+}
+
+fn (poly: ^Polyline) hasEdge(edge: Edge, directed: bool = false): bool {
+    for i, pt1 := 0, poly[len(poly^) - 1]; i < len(poly^); i++ {
+        pt2 := poly[i]
+        if (pt1 == edge[0] && pt2 == edge[1]) || (!directed && pt1 == edge[1] && pt2 == edge[0]) {
+            return true
+        }
+        pt1 = pt2
+    }
+    return false
 }
 
 fn getBadTris(pt: th.Vf2, pts: []th.Vf2, tris: TriangleSet): TriangleSet {
@@ -92,6 +98,27 @@ fn getBoundary(tris: TriangleSet): []Edge {
     }
 
     return boundaryEdges    
+}
+
+fn getNeighbors*(tris: TriangleSet): TriangleNeighbors {
+    neighbors := TriangleNeighbors{}
+
+    for tri, exists in tris {
+        if !exists {continue}
+
+        edges := tri.getEdges()
+
+        for edgeIndex, edge in edges {
+            for otherTri, exists in tris {
+                if exists && otherTri != tri && otherTri.hasEdge(edge) {
+                    neighbors[tri][edgeIndex] = otherTri
+                    break
+                }
+            }           
+        }
+    }
+
+    return neighbors
 }
 
 fn triangulate*(pts: []th.Vf2): TriangleSet {
@@ -142,19 +169,29 @@ fn triangulate*(pts: []th.Vf2): TriangleSet {
     return tris
 }
 
-fn trim*(tris: ^TriangleSet, boundary: Polyline) {
+fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Polyline) {
+    edges := root.getEdges()    
+    tris[root] = false
+
+    for edgeIndex, neighbor in neighbors[root] {
+        if tris[neighbor] && !boundary.hasEdge(edges[edgeIndex]) {
+            removeRecursively(neighbor, tris, neighbors, boundary)
+        }
+    }    
+}
+
+fn trim*(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: Polyline) {
     // Trim the triangulated convex hull against the boundary
     for tri, exists in tris {
         if !exists {continue}
 
-        // Remove triangle if one of its edges coincides with one of the boundary segments, but in opposite direction
-        for i, pt1 := 0, boundary[len(boundary) - 1]; i < len(boundary); i++ {
-            pt2 := boundary[i]
-            if tri.hasDirectedEdge({pt2, pt1}) {
-                tris[tri] = false
+        edges := tri.getEdges()
+
+        for _, edge in edges {
+            if boundary.hasEdge({edge[1], edge[0]}, true) {
+                removeRecursively(tri, tris, neighbors, boundary)
                 break
             }
-            pt1 = pt2
-        }   
+        }
     }
 }
