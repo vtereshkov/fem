@@ -21,10 +21,11 @@ fn init*() {
 
     mousePos := new(th.Vf2)
 
-    const captions = [7]str{
+    const captions = [8]str{
         "Boundary",
         "Hole",
         "Points",
+        "Constraints",
         "Edit",
         "Delete",
         "Calculate",

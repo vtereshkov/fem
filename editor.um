@@ -15,12 +15,15 @@ type (
         vert: [3]int
     }
 
+    PointSet = map[int]bool
+
     Editor* = struct {
         cmd: int
 
-        pt: []th.Vf2
-        poly: []Poly
-        tri: []Triangle
+        pts: []th.Vf2
+        polys: []Poly
+        tris: []Triangle
+        constraints: PointSet
 
         selectedPt: int
         curPoly: Poly
@@ -35,6 +38,7 @@ const (
     CMD_ENTER_BOUNDARY* = 0
     CMD_ENTER_HOLE*
     CMD_ENTER_POINTS*
+    CMD_ENTER_CONSTRAINTS*
     CMD_EDIT_POINT*
     CMD_DELETE_POINT*
     CMD_CALCULATE*
@@ -59,8 +63,8 @@ fn (poly: ^Poly) reverse() {
 
 fn (ed: ^Editor) isClockwise(poly: Poly): bool {
     sum := 0.0
-    for i, pt1 := 0, ed.pt[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
-        pt2 := ed.pt[poly.vert[i]]
+    for i, pt1 := 0, ed.pts[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
+        pt2 := ed.pts[poly.vert[i]]
         sum += (pt2.x - pt1.x) * (pt2.y + pt1.y)
         pt1 = pt2
     }
@@ -68,7 +72,7 @@ fn (ed: ^Editor) isClockwise(poly: Poly): bool {
 }
 
 fn (ed: ^Editor) findPoint(pos: th.Vf2): int {
-    for i, pt in ed.pt {
+    for i, pt in ed.pts {
         if fabs((pos.x - pt.x) * ed.cam.s.x) < POINT_SIZE && fabs((pos.y - pt.y) * ed.cam.s.y) < POINT_SIZE {
             return i
         }
@@ -79,7 +83,7 @@ fn (ed: ^Editor) findPoint(pos: th.Vf2): int {
 fn (ed: ^Editor) deleteSelectedPoint() {
     // Detect polygon containing the point, decrement other point indices
     polyToDelete := -1
-    for polyIndex, poly in ed.poly {
+    for polyIndex, poly in ed.polys {
         for vertIndex, vert in poly.vert {
             if vert == ed.selectedPt {
                 polyToDelete = polyIndex
@@ -92,27 +96,36 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 
     // Delete polygon containing the point
     if polyToDelete >= 0 {
-        ed.poly = delete(ed.poly, polyToDelete)
+        ed.polys = delete(ed.polys, polyToDelete)
+    }
+
+    // Delete constraint associated with the point, decrement other point indices
+    ed.constraints[ed.selectedPt] = false
+    for constr, exists in ed.constraints {
+        if exists && constr > ed.selectedPt {
+            ed.constraints[constr] = false
+            ed.constraints[constr - 1] = true
+        }
     }
 
     // Delete point
-    ed.pt = delete(ed.pt, ed.selectedPt)
+    ed.pts = delete(ed.pts, ed.selectedPt)
     ed.selectedPt = -1
 }
 
 fn (ed: ^Editor) triangulate() {
     boundaries := []delaunay.Poly{}
-    for i, poly in ed.poly {
+    for i, poly in ed.polys {
         boundaries = append(boundaries, poly.vert)  
     }   
 
-    triangles, ok := delaunay.triangulate(ed.pt, boundaries)
+    triangles, ok := delaunay.triangulate(ed.pts, boundaries)
     ed.statusMsg = ok ? "" : "Bad boundary"
 
-    ed.tri = []Triangle{}
+    ed.tris = []Triangle{}
     for tri, exists in triangles {
         if exists {
-            ed.tri = append(ed.tri, Triangle{tri})          
+            ed.tris = append(ed.tris, Triangle{tri})          
         }
     }
 }
@@ -134,7 +147,7 @@ fn (ed: ^Editor) endCmd*() {
                 if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
                     ed.curPoly.reverse()
                 }
-                ed.poly = append(ed.poly, ed.curPoly)
+                ed.polys = append(ed.polys, ed.curPoly)
             }
     }
 
@@ -168,14 +181,22 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
             ed.selectedPt = ed.findPoint(worldPos)
 
         case CMD_ENTER_POINTS:
-            ed.pt = append(ed.pt, worldPos)
+            ed.pts = append(ed.pts, worldPos)
+
+        case CMD_ENTER_CONSTRAINTS:
+            if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
+                ed.constraints[existingPt] = true
+            } else {            
+                ed.pts = append(ed.pts, worldPos)
+                ed.constraints[len(ed.pts) - 1] = true
+            }            
 
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                 ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
             } else {            
-                ed.pt = append(ed.pt, worldPos)
-                ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pt) - 1)
+                ed.pts = append(ed.pts, worldPos)
+                ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pts) - 1)
             }
     }
 }
@@ -187,7 +208,7 @@ fn (ed: ^Editor) processRightClick*() {
 fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
     if ed.cmd == CMD_EDIT_POINT && ed.selectedPt >= 0 {
         worldPos := pos.transformed(inverse(ed.cam))        
-        ed.pt[ed.selectedPt] = worldPos     
+        ed.pts[ed.selectedPt] = worldPos     
     }
 }
 
@@ -209,11 +230,11 @@ fn (ed: ^Editor) drawBackground(windowSize: th.Vf2) {
 }
 
 fn (ed: ^Editor) drawPolygons() {
-    for _, poly in ed.poly {
+    for _, poly in ed.polys {
         clr := poly.isHole ? th.blue : th.white
 
-        for i, pt1 := 0, ed.pt[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
-            pt2 := ed.pt[poly.vert[i]]
+        for i, pt1 := 0, ed.pts[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
+            pt2 := ed.pts[poly.vert[i]]
             canvas.drawLine(clr, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
             pt1 = pt2
         }
@@ -221,8 +242,8 @@ fn (ed: ^Editor) drawPolygons() {
 
     // Draw current polygon
     if len(ed.curPoly.vert) > 0 {
-        for i, pt1 := 0, ed.pt[ed.curPoly.vert[0]]; i < len(ed.curPoly.vert) - 1; i++ {
-            pt2 := ed.pt[ed.curPoly.vert[i + 1]]
+        for i, pt1 := 0, ed.pts[ed.curPoly.vert[0]]; i < len(ed.curPoly.vert) - 1; i++ {
+            pt2 := ed.pts[ed.curPoly.vert[i + 1]]
             canvas.drawLine(th.red, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
             pt1 = pt2
         }
@@ -230,7 +251,7 @@ fn (ed: ^Editor) drawPolygons() {
 }
 
 fn (ed: ^Editor) drawPoints() {
-    for i, pt in ed.pt {
+    for i, pt in ed.pts {
         clr := i == ed.selectedPt ? th.red : th.green
         screenPt := pt.transformed(ed.cam)
         canvas.drawQuad(clr, {
@@ -243,17 +264,31 @@ fn (ed: ^Editor) drawPoints() {
 }
 
 fn (ed: ^Editor) drawTriangles() {
-    for _, tri in ed.tri {
+    for _, tri in ed.tris {
         screenPt := [3]th.Vf2{
-            ed.pt[tri.vert[0]].transformed(ed.cam),
-            ed.pt[tri.vert[1]].transformed(ed.cam),
-            ed.pt[tri.vert[2]].transformed(ed.cam)
+            ed.pts[tri.vert[0]].transformed(ed.cam),
+            ed.pts[tri.vert[1]].transformed(ed.cam),
+            ed.pts[tri.vert[2]].transformed(ed.cam)
         }
         
         canvas.drawQuad(0x555555FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
         canvas.drawLine(th.white, screenPt[0], screenPt[1], 1)
         canvas.drawLine(th.white, screenPt[1], screenPt[2], 1)
         canvas.drawLine(th.white, screenPt[2], screenPt[0], 1)
+    }
+}
+
+fn (ed: ^Editor) drawConstraints() {
+    for constr, exists in ed.constraints {
+        if !exists {continue}
+
+        screenPt := ed.pts[constr].transformed(ed.cam)
+        canvas.drawQuad(th.magenta, {
+            screenPt, 
+            screenPt.add({-POINT_SIZE, POINT_SIZE * 2}), 
+            screenPt.add({ POINT_SIZE, POINT_SIZE * 2}), 
+            screenPt.add({ POINT_SIZE, POINT_SIZE * 2})
+        })        
     }
 }
 
@@ -266,5 +301,7 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
         ed.drawPolygons()
         ed.drawPoints()
     }
+
+    ed.drawConstraints()
 }
 
