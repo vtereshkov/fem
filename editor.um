@@ -292,6 +292,26 @@ fn (ed: ^Editor) drawConstraints() {
     }
 }
 
+fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2) {
+    worldLen := 100
+    if ed.cam.s.x > 5.0 {
+        worldLen = 10
+    } else if ed.cam.s.x < 0.2 {
+        worldLen = 1000
+    }
+    screenLen := worldLen * ed.cam.s.x
+
+    startPt := th.Vf2{windowSize.x - screenLen - 50, windowSize.y - 50}
+    endPt := startPt.add({screenLen, 0})
+
+    canvas.drawLine(th.white, startPt, endPt, 1)
+
+    text := sprintf("%d mm", worldLen)
+    textPos := startPt.add({0, -20})
+
+    canvas.drawText(text, textPos, th.white, 2)
+}
+
 fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
     ed.drawBackground(windowSize)   
 
@@ -303,5 +323,6 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
     }
 
     ed.drawConstraints()
+    ed.drawScaleBar(windowSize)
 }
 
