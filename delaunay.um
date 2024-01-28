@@ -1,5 +1,5 @@
 import (
-	"th.um"
+    "th.um"
 )
 
 type (
@@ -11,7 +11,7 @@ type (
 )
 
 fn det(a: [3][3]real): real {
-	return a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
+    return a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) -
            a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
            a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
 }
@@ -122,17 +122,17 @@ fn getNeighbors(tris: TriangleSet): TriangleNeighbors {
 fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
     // Bowyer-Watson method for Delaunay triangulation
 
-	// Add a fake super-triangle
+    // Add a fake super-triangle
     const BIG_VAL = 10000.0
 
-	ptsWithSuper := append(copy(pts), []th.Vf2{{BIG_VAL, BIG_VAL}, {-BIG_VAL, BIG_VAL}, {0.0, -BIG_VAL}})
-	superTri := Triangle{len(pts), len(pts) + 1, len(pts) + 2}
-	
+    ptsWithSuper := append(copy(pts), []th.Vf2{{BIG_VAL, BIG_VAL}, {-BIG_VAL, BIG_VAL}, {0.0, -BIG_VAL}})
+    superTri := Triangle{len(pts), len(pts) + 1, len(pts) + 2}
+    
     tris := TriangleSet{superTri: true}
 
-	// Add original points one by one
+    // Add original points one by one
     for ptIndex, pt in pts {
-		// Find triangles that get bad (i.e., non-Delaunay) after adding the point
+        // Find triangles that get bad (i.e., non-Delaunay) after adding the point
         badTris := getBadTris(pt, ptsWithSuper, tris)
 
         // Find a bounding polygon for all bad triangles
@@ -157,7 +157,7 @@ fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
             
             tris[tri] = true
         }              
-	}
+    }
 
     // Remove super-triangle parts from triangulation
     for tri, exists in tris {
