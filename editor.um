@@ -114,9 +114,13 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 }
 
 fn (ed: ^Editor) triangulate() {
-    boundaries := []delaunay.Poly{}
-    for i, poly in ed.polys {
-        boundaries = append(boundaries, poly.vert)  
+    boundaries := delaunay.EdgeSet{}
+    for _, poly in ed.polys {
+        for i, pt1 := 0, poly.vert[len(poly.vert) - 1]; i < len(poly.vert); i++ {
+            pt2 := poly.vert[i]
+            boundaries[{pt1, pt2}] = true
+            pt1 = pt2
+        } 
     }   
 
     triangles, ok := delaunay.triangulate(ed.pts, boundaries)
