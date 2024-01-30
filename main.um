@@ -19,8 +19,6 @@ fn init*() {
     ed := new(editor.Editor)
     ed.init()
 
-    mousePos := new(th.Vf2)
-
     const captions = [8]str{
         "Boundary",
         "Hole",
@@ -32,7 +30,7 @@ fn init*() {
         "Clear"
     }
 
-    window.onFrame.register(|ed, toolbarGui, mousePos| {
+    window.onFrame.register(|ed, toolbarGui| {
         window.setViewport(window.getDims())
 
         layout := ui.LayoutFn |ed| {
@@ -70,12 +68,10 @@ fn init*() {
         } else if input.isPressed(input.mouse1) {
             ed.processLeftDrag(input.getMousePos())
         } else if input.isPressed(input.mouse2) {
-            ed.processMidDrag(input.getMousePos().sub(mousePos^))
+            ed.processMidDrag(input.getMouseDelta())
         } else if input.getMouseScroll().y != 0.0 {
             ed.processWheel(input.getMousePos(), input.getMouseScroll().y)
         }
-
-        mousePos^ = input.getMousePos()
 
         ed.draw(window.getDims())
         toolbarGui.draw(layout)
