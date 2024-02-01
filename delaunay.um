@@ -75,6 +75,16 @@ fn (tri: ^Triangle) getEdges(): [3]Edge {
     return {{tri[0], tri[1]}, {tri[1], tri[2]}, {tri[2], tri[0]}}
 }
 
+fn (tris: ^TriangleSet) condense(): TriangleSet {
+    res := TriangleSet{}
+    for tri, exists in tris {
+        if exists {
+            res[tri] = true
+        }
+    }
+    return res
+}
+
 fn getBadTris(pt: th.Vf2, pts: []th.Vf2, tris: TriangleSet): TriangleSet {
     badTris := TriangleSet{}
     for tri, exists in tris {
@@ -311,6 +321,6 @@ fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     neighbors := getNeighbors(triangles)
     trim(&triangles, neighbors, boundary)
 
-    return triangles
+    return triangles.condense()
 } 
 

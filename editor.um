@@ -128,9 +128,7 @@ fn (ed: ^Editor) triangulate() {
 
     ed.tris = []Triangle{}
     for tri, exists in triangles {
-        if exists {
-            ed.tris = append(ed.tris, Triangle{tri})          
-        }
+        ed.tris = append(ed.tris, Triangle{tri})          
     }
 }
 
