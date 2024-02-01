@@ -334,13 +334,16 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
     ed.drawBackground(windowSize)   
 
     if ed.cmd == CMD_CALCULATE {
-        ed.drawTriangles()
+        if ed.statusMsg == "" {
+            ed.drawTriangles()
+        ed.drawConstraints()            
+        }
     } else {
         ed.drawPolygons()
+        ed.drawConstraints()
         ed.drawPoints()
     }
 
-    ed.drawConstraints()
     ed.drawScaleBar(windowSize)
 }
 
