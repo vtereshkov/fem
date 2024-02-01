@@ -113,9 +113,15 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     ed.selectedPt = -1
 }
 
-fn (ed: ^Editor) triangulate() {
+fn (ed: ^Editor) triangulate(): bool {
     boundaries := delaunay.EdgeSet{}
+    numMainBoundaries := 0
+
     for _, poly in ed.polys {
+        if !poly.isHole {
+            numMainBoundaries++
+        }
+
         for i, pt1 := 0, poly.vert[len(poly.vert) - 1]; i < len(poly.vert); i++ {
             pt2 := poly.vert[i]
             boundaries[{pt1, pt2}] = true
@@ -123,13 +129,22 @@ fn (ed: ^Editor) triangulate() {
         } 
     }   
 
-    triangles := delaunay.triangulate(ed.pts, boundaries)
-    ed.statusMsg = len(triangles) > 0 ? "" : "Bad boundary"
-
     ed.tris = []Triangle{}
-    for tri, exists in triangles {
+
+    if numMainBoundaries != 1 {
+        return false
+    }
+
+    triangles := delaunay.triangulate(ed.pts, boundaries) 
+    if len(triangles) == 0 {
+        return false
+    }
+
+    for tri in triangles {
         ed.tris = append(ed.tris, Triangle{tri})          
     }
+
+    return true
 }
 
 fn (ed: ^Editor) init*() {
@@ -167,7 +182,8 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
             ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
 
         case CMD_CALCULATE:
-            ed.triangulate()
+            ok := ed.triangulate()
+            ed.statusMsg = ok ? "" : "Bad boundary"
 
         case CMD_CLEAR:
             ed^ = Editor{}

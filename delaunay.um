@@ -202,6 +202,7 @@ fn isBoundaryValid(pts: []th.Vf2, boundary: EdgeSet): bool {
         vertexCount[edge[0]]++
         vertexCount[edge[1]]++
 
+        // No intersections
         for otherEdge, otherExists in boundary {
             if otherExists && edge.intersects(otherEdge, pts) {
                 return false
@@ -209,6 +210,7 @@ fn isBoundaryValid(pts: []th.Vf2, boundary: EdgeSet): bool {
         }
     }
 
+    // Exactly two edges at each vertex
     for pt, count in vertexCount {
         if count != 2 {
             return false
@@ -305,31 +307,45 @@ fn addEdge(pts: []th.Vf2, tris: ^TriangleSet, newEdge: Edge) {
     }
 }
 
-fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet) {
+fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bool {
     edges := root.getEdges()    
     tris[root] = false
 
     for edgeIndex, neighbor in neighbors[root] {
         edge := edges[edgeIndex]
-        if tris[neighbor] && !boundary[edge] && !boundary[edge.reverse()] {
-            removeRecursively(neighbor, tris, neighbors, boundary)
+        if tris[neighbor] {
+            // We should be outside the boundary; if we see a boundary from inside, the boundary is invalid 
+            if boundary[edge] {
+                return false
+            }
+            // No boundary -- continue removing triangles
+            if !boundary[edge.reverse()] {
+                if !removeRecursively(neighbor, tris, neighbors, boundary) {
+                    return false
+                }
+            }
         }
-    }    
+    }
+
+    return true    
 }
 
-fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet) {
+fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bool {
     // Trim the triangulated convex hull against the boundary
     for tri, exists in tris {
         if !exists {continue}
 
         for _, edge in tri.getEdges() {
-            // If a triangle edge coincides with a boundary segment, but in the reversed direction, the triangle is outside the boundary
+            // If a triangle edge coincides with a boundary edge, but in the reversed direction, the triangle is outside the boundary
             if boundary[edge.reverse()] {
-                removeRecursively(tri, tris, neighbors, boundary)
-                break
+                if !removeRecursively(tri, tris, neighbors, boundary) {
+                    return false
+                }
             }
         }
     }
+
+    return true
 }
 
 fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
@@ -348,7 +364,9 @@ fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     }
 
     neighbors := getNeighbors(triangles)
-    trim(&triangles, neighbors, boundary)
+    if !trim(&triangles, neighbors, boundary) {
+        return TriangleSet{}
+    }
 
     return triangles.condense()
 } 
