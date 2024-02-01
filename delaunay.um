@@ -193,6 +193,31 @@ fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
     return tris
 }
 
+fn isBoundaryValid(pts: []th.Vf2, boundary: EdgeSet): bool {
+    var vertexCount: map[int]int
+
+    for edge, exists in boundary {
+        if !exists {continue}
+
+        vertexCount[edge[0]]++
+        vertexCount[edge[1]]++
+
+        for otherEdge, otherExists in boundary {
+            if otherExists && edge.intersects(otherEdge, pts) {
+                return false
+            }
+        }
+    }
+
+    for pt, count in vertexCount {
+        if count != 2 {
+            return false
+        }
+    }
+
+    return true
+}
+
 fn getMissingEdges(tris: TriangleSet, edges: EdgeSet): EdgeSet {
     missingEdges := copy(edges)
 
@@ -308,6 +333,10 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet) {
 }
 
 fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
+    if !isBoundaryValid(pts, boundary) {
+        return TriangleSet{}
+    }
+
     triangles := triangulateConvexHull(pts)
 
     // Delaunay triangulation does not guarantee that all boundary edges are already present in it -- add them manually 
