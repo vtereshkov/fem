@@ -1,6 +1,5 @@
 import (
     "window.um"
-    "th.um"
     "ui.um"
     "input.um"
     "font.um"

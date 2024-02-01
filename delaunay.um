@@ -38,8 +38,29 @@ fn isClockwise(tri: [3]th.Vf2): bool {
     return d < 0.0
 }
 
+fn isConvex(quad: [4]th.Vf2): bool {
+    return isClockwise({quad[0], quad[1], quad[2]}) == isClockwise({quad[2], quad[3], quad[0]}) &&
+           isClockwise({quad[0], quad[1], quad[3]}) == isClockwise({quad[1], quad[2], quad[3]})
+}
+
 fn (edge: ^Edge) reverse(): Edge {
     return {edge[1], edge[0]}
+}
+
+fn (edge: ^Edge) intersects(otherEdge: Edge, pts: []th.Vf2): bool {
+    if edge[0] == otherEdge[0] || edge[0] == otherEdge[1] || edge[1] == otherEdge[0] || edge[1] == otherEdge[1] {
+        return false
+    }
+    return isConvex({pts[edge[0]], pts[otherEdge[0]], pts[edge[1]], pts[otherEdge[1]]})
+}
+
+fn (edges: ^EdgeSet) isEmpty(): bool {
+    for _, exists in edges {
+        if exists {
+            return false
+        }
+    }
+    return true
 }
 
 fn (tri: ^Triangle) hasVertex(i: int): bool {
@@ -162,6 +183,93 @@ fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
     return tris
 }
 
+fn getMissingEdges(tris: TriangleSet, edges: EdgeSet): EdgeSet {
+    missingEdges := copy(edges)
+
+    for tri, exists in tris {
+        if !exists {continue}
+        for _, edge in tri.getEdges() {
+            missingEdges[edge] = false
+        }
+    }
+
+    return missingEdges
+}
+
+fn getIntersectingEdges(pts: []th.Vf2, tris: TriangleSet, newEdge: Edge): EdgeSet {
+    intersectingEdges := EdgeSet{}
+
+    for tri, exists in tris {
+        if !exists {continue}
+        for _, edge in tri.getEdges() {
+            if !intersectingEdges[edge] && !intersectingEdges[edge.reverse()] && newEdge.intersects(edge, pts) {
+                intersectingEdges[edge] = true                
+            }
+        }
+    }
+
+    return intersectingEdges
+}
+
+fn getTrianglePair(tris: TriangleSet, commonEdge: Edge): ([2]Triangle, Edge) {
+    var pair: [2]Triangle
+    var freeVertices: Edge
+
+    for tri, exists in tris {
+        if !exists {continue}
+
+        for edgeIndex, edge in tri.getEdges() {
+            if edge == commonEdge {
+                pair[0] = tri
+                freeVertices[0] = tri[(edgeIndex + 2) % 3]
+                break
+            } else if edge.reverse() == commonEdge {
+                pair[1] = tri
+                freeVertices[1] = tri[(edgeIndex + 2) % 3]
+                break
+            }
+        }
+    }
+
+    return pair, freeVertices   
+}
+
+fn addEdge(pts: []th.Vf2, tris: ^TriangleSet, newEdge: Edge) {
+    // Detect all edges intersecting with the new edge and replace them with non-intersecting ones
+    intersectingEdges := getIntersectingEdges(pts, tris^, newEdge)
+
+    for !intersectingEdges.isEmpty() {
+        for diagonal, exists in intersectingEdges {
+            if !exists {continue}
+
+            // Find a quad (i.e., triangle pair) whose diagonal is the edge to be replaced, then construct its other diagonal
+            trianglePair, otherDiagonal := getTrianglePair(tris^, diagonal)
+            if !diagonal.intersects(otherDiagonal, pts) {continue}
+
+            // Construct a new triangle pair separated by the other diagonal
+            newTrianglePair := [2]Triangle{
+                {otherDiagonal[0], otherDiagonal[1], diagonal[1]},
+                {otherDiagonal[0], diagonal[0], otherDiagonal[1]}
+            }
+
+            // Replace the old pair with the new one
+            tris[trianglePair[0]] = false
+            tris[trianglePair[1]] = false
+
+            tris[newTrianglePair[0]] = true
+            tris[newTrianglePair[1]] = true
+
+            // Replace the old diagonal with the new one in the set of intersecting edges
+            intersectingEdges[diagonal] = false           
+            if newEdge.intersects(otherDiagonal, pts) {
+                intersectingEdges[otherDiagonal] = true
+            }
+
+            break
+        }
+    }
+}
+
 fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet) {
     edges := root.getEdges()    
     tris[root] = false
@@ -174,16 +282,12 @@ fn removeRecursively(root: Triangle, tris: ^TriangleSet, neighbors: TriangleNeig
     }    
 }
 
-fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bool {
+fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet) {
     // Trim the triangulated convex hull against the boundary
-    remainingBoundary := copy(boundary)
-
     for tri, exists in tris {
         if !exists {continue}
 
         for _, edge in tri.getEdges() {
-            remainingBoundary = delete(remainingBoundary, edge)
-
             // If a triangle edge coincides with a boundary segment, but in the reversed direction, the triangle is outside the boundary
             if boundary[edge.reverse()] {
                 removeRecursively(tri, tris, neighbors, boundary)
@@ -191,18 +295,22 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bo
             }
         }
     }
-
-    return len(remainingBoundary) == 0
 }
 
-fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): (TriangleSet, bool) {
+fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     triangles := triangulateConvexHull(pts)
-    neighbors := getNeighbors(triangles)
 
-    if !trim(&triangles, neighbors, boundary) {
-        return TriangleSet{}, false
+    // Delaunay triangulation does not guarantee that all boundary edges are already present in it -- add them manually 
+    missingEdges := getMissingEdges(triangles, boundary)
+    for missingEdge, exists in missingEdges {
+        if exists {
+            addEdge(pts, &triangles, missingEdge)
+        }
     }
 
-    return triangles, true
+    neighbors := getNeighbors(triangles)
+    trim(&triangles, neighbors, boundary)
+
+    return triangles
 } 
 

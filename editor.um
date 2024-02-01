@@ -123,8 +123,8 @@ fn (ed: ^Editor) triangulate() {
         } 
     }   
 
-    triangles, ok := delaunay.triangulate(ed.pts, boundaries)
-    ed.statusMsg = ok ? "" : "Bad boundary"
+    triangles := delaunay.triangulate(ed.pts, boundaries)
+    ed.statusMsg = len(triangles) > 0 ? "" : "Bad boundary"
 
     ed.tris = []Triangle{}
     for tri, exists in triangles {
