@@ -13,15 +13,20 @@ fn init*() {
 
     style := ui.getDefaultStyle()
     style.ft = font.load("sans.ttf", 16, font.filterLinear)
-    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 80, 10000), style))
+    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 100, 10000), style))
+
+    forceTextBox := new([2]ui.TextBox)
+    forceTextBox[0].setBuf("0")
+    forceTextBox[1].setBuf("-100")
     
     ed := new(editor.Editor)
     ed.init()
 
-    const captions = [8]str{
+    const captions = [9]str{
         "Boundary",
         "Hole",
         "Points",
+        "Forces",
         "Constraints",
         "Edit",
         "Delete",
@@ -29,10 +34,10 @@ fn init*() {
         "Clear"
     }
 
-    window.onFrame.register(|ed, toolbarGui| {
+    window.onFrame.register(|ed, toolbarGui, forceTextBox| {
         window.setViewport(window.getDims())
 
-        layout := ui.LayoutFn |ed| {
+        layout := ui.LayoutFn |ed, forceTextBox| {
             gui.box({dimension: 30, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
                 for cmd, caption in captions {
@@ -53,7 +58,14 @@ fn init*() {
                         gui.popStyle()
                     }                    
                 }
-                gui.label(ed.statusMsg)
+
+                if ed.cmd == editor.CMD_ENTER_FORCES {
+                    gui.label("Force X, Y (N)", {centerX: true, centerY: true})
+                    gui.textBox(&forceTextBox[0])
+                    gui.textBox(&forceTextBox[1])
+                }                
+
+                gui.label(ed.statusMsg, {centerX: true, centerY: true})
             }
             gui.popContainer()
         }
@@ -61,7 +73,7 @@ fn init*() {
         toolbarGui.eval(layout)
 
         if input.isJustPressed(input.mouse1) {
-            ed.processLeftClick(input.getMousePos())
+            ed.processLeftClick(input.getMousePos(), {forceTextBox[0].getBuf(), forceTextBox[1].getBuf()})
         } else if input.isJustPressed(input.mouse3) {
             ed.processRightClick()
         } else if input.isPressed(input.mouse1) {

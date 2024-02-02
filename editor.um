@@ -17,6 +17,8 @@ type (
 
     PointSet = map[int]bool
 
+    ForceSet = map[int]th.Vf2
+
     Editor* = struct {
         cmd: int
 
@@ -24,6 +26,7 @@ type (
         polys: []Poly
         tris: []Triangle
         constraints: PointSet
+        forces: ForceSet
 
         selectedPt: int
         curPoly: Poly
@@ -38,6 +41,7 @@ const (
     CMD_ENTER_BOUNDARY* = 0
     CMD_ENTER_HOLE*
     CMD_ENTER_POINTS*
+    CMD_ENTER_FORCES*
     CMD_ENTER_CONSTRAINTS*
     CMD_EDIT_POINT*
     CMD_DELETE_POINT*
@@ -48,7 +52,14 @@ const (
 const (
     POINT_SIZE = 10
     LINE_WIDTH = 3
+    FORCE_LENGTH = 40
 )
+
+fn sign(x: real): real {
+    if x > 0 {return 1}
+    if x < 0 {return -1}
+    return 0
+}
 
 fn inverse(t: th.Transform): th.Transform {
     return {p: {-t.p.x / t.s.x, -t.p.y / t.s.y}, s: {1.0 / t.s.x, 1.0 / t.s.y}}
@@ -99,12 +110,21 @@ fn (ed: ^Editor) deleteSelectedPoint() {
         ed.polys = delete(ed.polys, polyToDelete)
     }
 
+    // Delete force associated with the point, decrement other point indices
+    ed.forces[ed.selectedPt] = th.Vf2{0, 0}
+    for ptIndex, force in ed.forces {
+        if (force.x != 0 || force.y != 0) && ptIndex > ed.selectedPt {
+            ed.forces[ptIndex] = th.Vf2{0, 0}
+            ed.forces[ptIndex - 1] = force
+        }
+    }    
+
     // Delete constraint associated with the point, decrement other point indices
     ed.constraints[ed.selectedPt] = false
-    for constr, exists in ed.constraints {
-        if exists && constr > ed.selectedPt {
-            ed.constraints[constr] = false
-            ed.constraints[constr - 1] = true
+    for ptIndex, exists in ed.constraints {
+        if exists && ptIndex > ed.selectedPt {
+            ed.constraints[ptIndex] = false
+            ed.constraints[ptIndex - 1] = true
         }
     }
 
@@ -191,7 +211,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
     } 
 }
 
-fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
+fn (ed: ^Editor) processLeftClick*(pos: th.Vf2, forceStr: [2]str) {
     worldPos := pos.transformed(inverse(ed.cam))
 
     switch ed.cmd {
@@ -207,7 +227,23 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
             } else {            
                 ed.pts = append(ed.pts, worldPos)
                 ed.constraints[len(ed.pts) - 1] = true
-            }            
+            }
+
+        case CMD_ENTER_FORCES:
+            var force: th.Vf2
+            numXVals := sscanf(forceStr[0], "%f", &force.x)
+            numYVals := sscanf(forceStr[1], "%f", &force.y)
+
+            if numXVals == 1 && numYVals == 1 {
+                if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
+                    ed.forces[existingPt] = force
+                } else {            
+                    ed.pts = append(ed.pts, worldPos)
+                    ed.forces[len(ed.pts) - 1] = force
+                }                
+            } else {
+                ed.statusMsg = "Bad values"
+            }               
 
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
@@ -289,18 +325,46 @@ fn (ed: ^Editor) drawTriangles() {
             ed.pts[tri.vert[2]].transformed(ed.cam)
         }
         
-        canvas.drawQuad(0x555555FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
-        canvas.drawLine(th.white, screenPt[0], screenPt[1], 1)
-        canvas.drawLine(th.white, screenPt[1], screenPt[2], 1)
-        canvas.drawLine(th.white, screenPt[2], screenPt[0], 1)
+        canvas.drawQuad(0x333333FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
+        canvas.drawLine(0xAAAAAAFF, screenPt[0], screenPt[1], 1)
+        canvas.drawLine(0xAAAAAAFF, screenPt[1], screenPt[2], 1)
+        canvas.drawLine(0xAAAAAAFF, screenPt[2], screenPt[0], 1)
+    }
+}
+
+fn (ed: ^Editor) drawForces() {
+    for ptIndex, force in ed.forces {
+        if force.x == 0.0 && force.y == 0.0 {
+            continue
+        }
+
+        screenPt0 := ed.pts[ptIndex].transformed(ed.cam)
+
+        if force.x != 0 {
+            screenPtX := screenPt0.add({sign(force.x * ed.cam.s.x) * FORCE_LENGTH, 0})
+            canvas.drawLine(th.yellow, screenPt0, screenPtX, 2)
+
+            textX := sprintf("%g N", force.x)
+            textPosX := screenPtX.add({sign(force.x * ed.cam.s.x) * 15, 0})
+            canvas.drawText(textX, textPosX, th.yellow, 1)
+        }
+        
+        if force.y != 0 {
+            screenPtY := screenPt0.add({0, sign(force.y * ed.cam.s.y) * FORCE_LENGTH})
+            canvas.drawLine(th.yellow, screenPt0, screenPtY, 2)
+
+            textY := sprintf("%g N", force.y)
+            textPosY := screenPtY.add({0, sign(force.y * ed.cam.s.y) * 15})
+            canvas.drawText(textY, textPosY, th.yellow, 1)
+        }               
     }
 }
 
 fn (ed: ^Editor) drawConstraints() {
-    for constr, exists in ed.constraints {
+    for ptIndex, exists in ed.constraints {
         if !exists {continue}
 
-        screenPt := ed.pts[constr].transformed(ed.cam)
+        screenPt := ed.pts[ptIndex].transformed(ed.cam)
         canvas.drawQuad(th.magenta, {
             screenPt, 
             screenPt.add({-POINT_SIZE, POINT_SIZE * 2}), 
@@ -336,10 +400,12 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
     if ed.cmd == CMD_CALCULATE {
         if ed.statusMsg == "" {
             ed.drawTriangles()
-        ed.drawConstraints()            
+            ed.drawForces()
+            ed.drawConstraints()            
         }
     } else {
         ed.drawPolygons()
+        ed.drawForces()
         ed.drawConstraints()
         ed.drawPoints()
     }
