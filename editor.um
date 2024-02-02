@@ -204,6 +204,25 @@ fn (ed: ^Editor) triangulate(): bool {
     return true
 }
 
+fn (ed: ^Editor) calculate() {
+    if ed.curMaterial == null || !ed.curMaterial.isValid() {
+        ed.errCode = ERR_BAD_MATERIAL
+        return
+    }
+
+    if !ed.constraints.isValid() {
+        ed.errCode = ERR_BAD_CONSTRAINTS
+        return
+    }
+
+    if !ed.triangulate() {
+        ed.errCode = ERR_BAD_BOUNDARY
+        return
+    }
+
+    // TODO: Run FEM
+}
+
 fn (ed: ^Editor) init*() {
     ed.curMaterial = &Material{young: 200e9, poisson: 0.3, thickness: 0.001}
     ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
@@ -246,19 +265,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
             ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
 
         case CMD_CALCULATE:
-            if ed.curMaterial != null && ed.curMaterial.isValid() {
-                if ed.constraints.isValid() { 
-                    if ed.triangulate() {
-                        // TODO: Run FEM
-                    } else {
-                        ed.errCode = ERR_BAD_BOUNDARY
-                    }
-                } else {
-                    ed.errCode = ERR_BAD_CONSTRAINTS
-                }
-            } else {
-                ed.errCode = ERR_BAD_MATERIAL
-            }
+            ed.calculate()
 
         case CMD_CLEAR:
             ed^ = Editor{}
