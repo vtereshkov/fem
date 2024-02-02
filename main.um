@@ -1,4 +1,5 @@
 import (
+    "th.um"
     "window.um"
     "ui.um"
     "input.um"
@@ -72,8 +73,15 @@ fn init*() {
 
         toolbarGui.eval(layout)
 
+        force := new(th.Vf2)
+        numXVals := sscanf(forceTextBox[0].getBuf(), "%f", &force.x)
+        numYVals := sscanf(forceTextBox[1].getBuf(), "%f", &force.y)
+        if numXVals != 1 && numYVals != 1 {
+            force = null
+        }
+
         if input.isJustPressed(input.mouse1) {
-            ed.processLeftClick(input.getMousePos(), {forceTextBox[0].getBuf(), forceTextBox[1].getBuf()})
+            ed.processLeftClick(input.getMousePos(), force)
         } else if input.isJustPressed(input.mouse3) {
             ed.processRightClick()
         } else if input.isPressed(input.mouse1) {
