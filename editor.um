@@ -66,9 +66,10 @@ const (
 )
 
 const (
-    POINT_SIZE = 10
-    LINE_WIDTH = 3
+    POINT_SIZE   = 10
+    LINE_WIDTH   = 3
     FORCE_LENGTH = 40
+    DEFAULT_SCALE = 4000    // pix/m
 )
 
 fn sign(x: real): real {
@@ -86,6 +87,10 @@ fn (poly: ^Poly) reverse() {
         poly.vert[i], poly.vert[j] = poly.vert[j], poly.vert[i]
         j--
     }
+}
+
+fn (mat: ^Material) isValid(): bool {
+    return mat.young > 0 && mat.poisson > 0 && mat.poisson < 0.5 && mat.thickness > 0
 }
 
 fn (ed: ^Editor) isClockwise(poly: Poly): bool {
@@ -185,7 +190,7 @@ fn (ed: ^Editor) triangulate(): bool {
 
 fn (ed: ^Editor) init*() {
     ed.curMaterial = &Material{young: 200e9, poisson: 0.3, thickness: 0.001}
-    ed.cam = th.mkTransform({0, 0}, {1, -1})
+    ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }
 
@@ -225,7 +230,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
             ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
 
         case CMD_CALCULATE:
-            if ed.curMaterial != null {
+            if ed.curMaterial != null && ed.curMaterial.isValid() {
                 if ed.triangulate() {
                     // TODO: Run FEM
                 } else {
@@ -298,8 +303,9 @@ fn (ed: ^Editor) processMidDrag*(delta: th.Vf2) {
 
 fn (ed: ^Editor) processWheel*(pos: th.Vf2, scroll: real32) {
     scale := (1 + 0.1 * scroll) * ed.cam.s.x
-    if scale > 10.0 {scale = 10.0}
-    if scale <  0.1 {scale =  0.1}
+    
+    if scale >  10 * DEFAULT_SCALE {scale =  10 * DEFAULT_SCALE}
+    if scale < 0.1 * DEFAULT_SCALE {scale = 0.1 * DEFAULT_SCALE}
 
     ed.cam.p = ed.cam.p.sub(pos.transformed(inverse(ed.cam)).mul({scale - ed.cam.s.x, -scale - ed.cam.s.y}))
     ed.cam.s = {scale, -scale}
@@ -409,11 +415,11 @@ fn (ed: ^Editor) drawConstraints() {
 }
 
 fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
-    worldLen := 100
-    if ed.cam.s.x > 5.0 {
-        worldLen = 10
-    } else if ed.cam.s.x < 0.2 {
-        worldLen = 1000
+    worldLen := 0.1
+    if ed.cam.s.x > 2 * DEFAULT_SCALE {
+        worldLen = 0.01
+    } else if ed.cam.s.x < 0.2 * DEFAULT_SCALE {
+        worldLen = 1.0
     }
     screenLen := worldLen * ed.cam.s.x
 
@@ -422,7 +428,7 @@ fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
 
     canvas.drawLine(th.white, startPt, endPt, 1)
 
-    text := sprintf("%d mm", worldLen)
+    text := sprintf("%d mm", round(worldLen * 1000))   // m -> mm
     textSize := ft.measure(text)
     textPos := startPt.add({screenLen / 2 - textSize.x / 2, -10 - textSize.y / 2})
 
