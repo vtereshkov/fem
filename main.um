@@ -9,9 +9,30 @@ import (
     "editor.um"
 )
 
+const cmdNames = [10]str{
+    "Boundary",
+    "Hole",
+    "Points",
+    "Forces",
+    "Constraints",
+    "Material",
+    "Edit",
+    "Delete",
+    "Calculate",
+    "Clear"
+}
+
+const errStrings = [4]str{
+    "",
+    "Bad boundary",
+    "Bad force",
+    "Bad material"
+}
+
 var (
     toolbarGui: ui.Gui
     forceTextBox: [2]ui.TextBox
+    youngTextBox, poissonTextBox, thicknessTextBox: ui.TextBox
     ed: editor.Editor
     ft: font.Font
 )
@@ -27,28 +48,21 @@ fn init*() {
 
     forceTextBox[0].setBuf("0")
     forceTextBox[1].setBuf("-100")
+
+    youngTextBox.setBuf("200")
+    poissonTextBox.setBuf("0.3")
+    thicknessTextBox.setBuf("1")
     
     ed.init()
-
-    const captions = [9]str{
-        "Boundary",
-        "Hole",
-        "Points",
-        "Forces",
-        "Constraints",
-        "Edit",
-        "Delete",
-        "Calculate",
-        "Clear"
-    }
 
     window.onFrame.register({
         window.setViewport(window.getDims())
 
+        // Construct toolbar GUI
         layout := ui.LayoutFn {
             gui.box({dimension: 30, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
-                for cmd, caption in captions {
+                for cmd, cmdName in cmdNames {
                     isButtonPressed := !gui.isEval && ed.cmd == cmd
 
                     if isButtonPressed {
@@ -58,7 +72,7 @@ fn init*() {
                         gui.pushStyle(pressedStyle)
                     }
 
-                    if gui.qbutton(caption) && ed.cmd != cmd {
+                    if gui.qbutton(cmdName) && ed.cmd != cmd {
                         ed.startCmd(cmd)
                     }
 
@@ -71,24 +85,52 @@ fn init*() {
                     gui.label("Force X, Y (N)", {centerX: true, centerY: true})
                     gui.textBox(&forceTextBox[0])
                     gui.textBox(&forceTextBox[1])
-                }                
+                } else if ed.cmd == editor.CMD_ENTER_MATERIAL {
+                    gui.label("Young (GPa)", {centerX: true, centerY: true})
+                    gui.textBox(&youngTextBox)
+                    gui.label("Poisson", {centerX: true, centerY: true})
+                    gui.textBox(&poissonTextBox)
+                    gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
+                    gui.textBox(&thicknessTextBox)
+                }               
 
-                gui.label(ed.statusMsg, {centerX: true, centerY: true})
+                gui.label(errStrings[ed.errCode], {centerX: true, centerY: true})
             }
             gui.popContainer()
         }
 
         toolbarGui.eval(layout)
 
-        force := new(th.Vf2)
-        numXVals := sscanf(forceTextBox[0].getBuf(), "%f", &force.x)
-        numYVals := sscanf(forceTextBox[1].getBuf(), "%f", &force.y)
-        if numXVals != 1 || numYVals != 1 {
-            force = null
+        // Process force text boxes data
+        if ed.cmd == editor.CMD_ENTER_FORCES {
+            force := new(th.Vf2)
+
+            ok := sscanf(forceTextBox[0].getBuf(), "%f", &force.x) == 1 &&
+                  sscanf(forceTextBox[1].getBuf(), "%f", &force.y) == 1
+
+            ed.curForce = ok ? force : null
         }
 
+        // Process material text boxes data
+        if ed.cmd == editor.CMD_ENTER_MATERIAL {
+            material := new(editor.Material)
+
+            ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
+                  sscanf(poissonTextBox.getBuf(),   "%lf", &material.poisson)   == 1 &&
+                  sscanf(thicknessTextBox.getBuf(), "%lf", &material.thickness) == 1
+
+            if ok {
+                material.young /= 1e9       // GPa -> Pa
+                material.thickness /= 1e3   // mm  -> m
+                ed.curMaterial = material 
+            } else {
+                ed.curMaterial = null
+            }
+        }
+
+        // Process mouse input
         if input.isJustPressed(input.mouse1) {
-            ed.processLeftClick(input.getMousePos(), force)
+            ed.processLeftClick(input.getMousePos())
         } else if input.isJustPressed(input.mouse3) {
             ed.processRightClick()
         } else if input.isPressed(input.mouse1) {
@@ -99,6 +141,7 @@ fn init*() {
             ed.processWheel(input.getMousePos(), input.getMouseScroll().y)
         }
 
+        // Draw GUI
         ed.draw(window.getDims(), ft)
         toolbarGui.draw(layout)
     })

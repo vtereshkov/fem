@@ -20,21 +20,28 @@ type (
 
     ForceSet = map[int]th.Vf2
 
+    Material* = struct {
+        young, poisson, thickness: real
+    }
+
     Editor* = struct {
         cmd: int
 
         pts: []th.Vf2
         polys: []Poly
         tris: []Triangle
+
         constraints: PointSet
         forces: ForceSet
 
         selectedPt: int
         curPoly: Poly
+        curForce: ^th.Vf2
+        curMaterial: ^Material
 
         cam: th.Transform
 
-        statusMsg: str
+        errCode: int
     }
 )
 
@@ -44,10 +51,18 @@ const (
     CMD_ENTER_POINTS*
     CMD_ENTER_FORCES*
     CMD_ENTER_CONSTRAINTS*
+    CMD_ENTER_MATERIAL*
     CMD_EDIT_POINT*
     CMD_DELETE_POINT*
     CMD_CALCULATE*
     CMD_CLEAR*  
+)
+
+const (
+    ERR_NONE* = 0
+    ERR_BAD_BOUNDARY*
+    ERR_BAD_FORCE*
+    ERR_BAD_MATERIAL*
 )
 
 const (
@@ -114,7 +129,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     // Delete force associated with the point, decrement other point indices
     ed.forces[ed.selectedPt] = th.Vf2{0, 0}
     for ptIndex, force in ed.forces {
-        if (force.x != 0 || force.y != 0) && ptIndex > ed.selectedPt {
+        if force.mag() != 0 && ptIndex > ed.selectedPt {
             ed.forces[ptIndex] = th.Vf2{0, 0}
             ed.forces[ptIndex - 1] = force
         }
@@ -169,6 +184,7 @@ fn (ed: ^Editor) triangulate(): bool {
 }
 
 fn (ed: ^Editor) init*() {
+    ed.curMaterial = &Material{young: 200e9, poisson: 0.3, thickness: 0.001}
     ed.cam = th.mkTransform({0, 0}, {1, -1})
     ed.cmd = CMD_EDIT_POINT
 }
@@ -197,7 +213,7 @@ fn (ed: ^Editor) endCmd*() {
 
     ed.selectedPt = -1
     ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
-    ed.statusMsg = ""
+    ed.errCode = ERR_NONE
 }
 
 fn (ed: ^Editor) startCmd*(cmd: int) {
@@ -209,8 +225,15 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
             ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
 
         case CMD_CALCULATE:
-            ok := ed.triangulate()
-            ed.statusMsg = ok ? "" : "Bad boundary"
+            if ed.curMaterial != null {
+                if ed.triangulate() {
+                    // TODO: Run FEM
+                } else {
+                    ed.errCode = ERR_BAD_BOUNDARY
+                }
+            } else {
+                ed.errCode = ERR_BAD_MATERIAL
+            }
 
         case CMD_CLEAR:
             ed^ = Editor{}
@@ -218,7 +241,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
     } 
 }
 
-fn (ed: ^Editor) processLeftClick*(pos: th.Vf2, force: ^th.Vf2) {
+fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
     worldPos := pos.transformed(inverse(ed.cam))
 
     switch ed.cmd {
@@ -237,15 +260,15 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2, force: ^th.Vf2) {
             }
 
         case CMD_ENTER_FORCES:
-            if force != null {
+            if ed.curForce != null {
                 if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
-                    ed.forces[existingPt] = force^
+                    ed.forces[existingPt] = ed.curForce^
                 } else {            
                     ed.pts = append(ed.pts, worldPos)
-                    ed.forces[len(ed.pts) - 1] = force^
+                    ed.forces[len(ed.pts) - 1] = ed.curForce^
                 }                
             } else {
-                ed.statusMsg = "Bad values"
+                ed.errCode = ERR_BAD_FORCE
             }               
 
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
@@ -410,7 +433,7 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2, ft: font.Font) {
     ed.drawBackground(windowSize)   
 
     if ed.cmd == CMD_CALCULATE {
-        if ed.statusMsg == "" {
+        if ed.errCode == ERR_NONE {
             ed.drawTriangles()
             ed.drawForces(ft)
             ed.drawConstraints()            
