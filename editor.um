@@ -62,6 +62,7 @@ const (
     ERR_NONE* = 0
     ERR_BAD_BOUNDARY*
     ERR_BAD_FORCE*
+    ERR_BAD_CONSTRAINTS*
     ERR_BAD_MATERIAL*
 )
 
@@ -88,6 +89,21 @@ fn (poly: ^Poly) reverse() {
         j--
     }
 }
+
+fn (pts: ^PointSet) condense(): PointSet {
+    res := PointSet{}
+    for pt, exists in pts {
+        if exists {
+            res[pt] = true
+        }
+    }
+    return res
+}
+
+fn (constraints: ^PointSet) isValid(): bool {
+    constraints^ = constraints.condense()
+    return len(constraints^) >= 2
+} 
 
 fn (mat: ^Material) isValid(): bool {
     return mat.young > 0 && mat.poisson > 0 && mat.poisson < 0.5 && mat.thickness > 0
@@ -231,10 +247,14 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
 
         case CMD_CALCULATE:
             if ed.curMaterial != null && ed.curMaterial.isValid() {
-                if ed.triangulate() {
-                    // TODO: Run FEM
+                if ed.constraints.isValid() { 
+                    if ed.triangulate() {
+                        // TODO: Run FEM
+                    } else {
+                        ed.errCode = ERR_BAD_BOUNDARY
+                    }
                 } else {
-                    ed.errCode = ERR_BAD_BOUNDARY
+                    ed.errCode = ERR_BAD_CONSTRAINTS
                 }
             } else {
                 ed.errCode = ERR_BAD_MATERIAL

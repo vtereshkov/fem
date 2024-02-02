@@ -22,10 +22,11 @@ const cmdNames = [10]str{
     "Clear"
 }
 
-const errStrings = [4]str{
+const errStrings = [5]str{
     "",
     "Bad boundary",
     "Bad force",
+    "Bad constraints",
     "Bad material"
 }
 
