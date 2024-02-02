@@ -1,6 +1,7 @@
 import (
     "th.um"
     "canvas.um"
+    "font.um"
 
     "delaunay.um"
 )
@@ -321,14 +322,14 @@ fn (ed: ^Editor) drawTriangles() {
             ed.pts[tri.vert[2]].transformed(ed.cam)
         }
         
-        canvas.drawQuad(0x333333FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
+        canvas.drawQuad(0x444444FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
         canvas.drawLine(0xAAAAAAFF, screenPt[0], screenPt[1], 1)
         canvas.drawLine(0xAAAAAAFF, screenPt[1], screenPt[2], 1)
         canvas.drawLine(0xAAAAAAFF, screenPt[2], screenPt[0], 1)
     }
 }
 
-fn (ed: ^Editor) drawForces() {
+fn (ed: ^Editor) drawForces(ft: font.Font) {
     for ptIndex, force in ed.forces {
         if force.x == 0.0 && force.y == 0.0 {
             continue
@@ -337,21 +338,29 @@ fn (ed: ^Editor) drawForces() {
         screenPt0 := ed.pts[ptIndex].transformed(ed.cam)
 
         if force.x != 0 {
-            screenPtX := screenPt0.add({sign(force.x * ed.cam.s.x) * FORCE_LENGTH, 0})
-            canvas.drawLine(th.yellow, screenPt0, screenPtX, 2)
+            sgn := sign(force.x * ed.cam.s.x)
 
-            textX := sprintf("%g N", force.x)
-            textPosX := screenPtX.add({sign(force.x * ed.cam.s.x) * 15, 0})
-            canvas.drawText(textX, textPosX, th.yellow, 1)
+            screenPt := screenPt0.add({sgn * FORCE_LENGTH, 0})
+            canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
+
+            text := sprintf("%g N", force.x)
+            textSize := ft.measure(text)
+            textPos := screenPt.add({(sgn > 0.0 ? 10.0 : -10.0 - textSize.x), -textSize.y / 2})
+            
+            ft.draw(text, textPos, th.yellow, 1)
         }
         
         if force.y != 0 {
-            screenPtY := screenPt0.add({0, sign(force.y * ed.cam.s.y) * FORCE_LENGTH})
-            canvas.drawLine(th.yellow, screenPt0, screenPtY, 2)
+            sgn := sign(force.y * ed.cam.s.y)
 
-            textY := sprintf("%g N", force.y)
-            textPosY := screenPtY.add({0, sign(force.y * ed.cam.s.y) * 15})
-            canvas.drawText(textY, textPosY, th.yellow, 1)
+            screenPt := screenPt0.add({0, sgn * FORCE_LENGTH})
+            canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
+
+            text := sprintf("%g N", force.y)
+            textSize := ft.measure(text)
+            textPos := screenPt.add({-textSize.x / 2, (sgn > 0.0 ? 10.0 : -10.0 - textSize.y)})
+
+            ft.draw(text, textPos, th.yellow, 1)
         }               
     }
 }
@@ -370,7 +379,7 @@ fn (ed: ^Editor) drawConstraints() {
     }
 }
 
-fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2) {
+fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
     worldLen := 100
     if ed.cam.s.x > 5.0 {
         worldLen = 10
@@ -385,27 +394,28 @@ fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2) {
     canvas.drawLine(th.white, startPt, endPt, 1)
 
     text := sprintf("%d mm", worldLen)
-    textPos := startPt.add({0, -20})
+    textSize := ft.measure(text)
+    textPos := startPt.add({screenLen / 2 - textSize.x / 2, -10 - textSize.y / 2})
 
-    canvas.drawText(text, textPos, th.white, 2)
+    ft.draw(text, textPos, th.white, 1)
 }
 
-fn (ed: ^Editor) draw*(windowSize: th.Vf2) {
+fn (ed: ^Editor) draw*(windowSize: th.Vf2, ft: font.Font) {
     ed.drawBackground(windowSize)   
 
     if ed.cmd == CMD_CALCULATE {
         if ed.statusMsg == "" {
             ed.drawTriangles()
-            ed.drawForces()
+            ed.drawForces(ft)
             ed.drawConstraints()            
         }
     } else {
         ed.drawPolygons()
-        ed.drawForces()
+        ed.drawForces(ft)
         ed.drawConstraints()
         ed.drawPoints()
     }
 
-    ed.drawScaleBar(windowSize)
+    ed.drawScaleBar(windowSize, ft)
 }
 

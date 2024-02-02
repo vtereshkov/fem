@@ -9,18 +9,25 @@ import (
     "editor.um"
 )
 
+var (
+    toolbarGui: ui.Gui
+    forceTextBox: [2]ui.TextBox
+    ed: editor.Editor
+    ft: font.Font
+)
+
 fn init*() {
     window.setup("I LOVE FEM", 1300, 600)
 
-    style := ui.getDefaultStyle()
-    style.ft = font.load("sans.ttf", 16, font.filterLinear)
-    toolbarGui := new(ui.Gui, ui.mk(rect.mk(0, 0, 100, 10000), style))
+    ft = font.load("sans.ttf", 16, font.filterLinear)
 
-    forceTextBox := new([2]ui.TextBox)
+    style := ui.getDefaultStyle()
+    style.ft = ft
+    toolbarGui = ui.mk(rect.mk(0, 0, 100, 10000), style)
+
     forceTextBox[0].setBuf("0")
     forceTextBox[1].setBuf("-100")
     
-    ed := new(editor.Editor)
     ed.init()
 
     const captions = [9]str{
@@ -35,10 +42,10 @@ fn init*() {
         "Clear"
     }
 
-    window.onFrame.register(|ed, toolbarGui, forceTextBox| {
+    window.onFrame.register({
         window.setViewport(window.getDims())
 
-        layout := ui.LayoutFn |ed, forceTextBox| {
+        layout := ui.LayoutFn {
             gui.box({dimension: 30, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
                 for cmd, caption in captions {
@@ -92,7 +99,7 @@ fn init*() {
             ed.processWheel(input.getMousePos(), input.getMouseScroll().y)
         }
 
-        ed.draw(window.getDims())
+        ed.draw(window.getDims(), ft)
         toolbarGui.draw(layout)
     })
 }
