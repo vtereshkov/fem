@@ -76,7 +76,7 @@ fn init*() {
         force := new(th.Vf2)
         numXVals := sscanf(forceTextBox[0].getBuf(), "%f", &force.x)
         numYVals := sscanf(forceTextBox[1].getBuf(), "%f", &force.y)
-        if numXVals != 1 && numYVals != 1 {
+        if numXVals != 1 || numYVals != 1 {
             force = null
         }
 
