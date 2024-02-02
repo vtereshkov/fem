@@ -177,7 +177,13 @@ fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
         case CMD_DELETE_POINT:
             if ed.selectedPt >= 0 {
-                ed.deleteSelectedPoint()
+                if ed.forces[ed.selectedPt].mag() != 0.0 {
+                    ed.forces[ed.selectedPt] = th.Vf2{0, 0}
+                } else if ed.constraints[ed.selectedPt] {
+                    ed.constraints[ed.selectedPt] = false
+                } else {
+                    ed.deleteSelectedPoint()
+                }
             }
 
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
