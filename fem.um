@@ -52,21 +52,33 @@ fn (el: ^Element) convertDofToGlobal(i: int): int {
 }
 
 fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
-    stiffness := matrix.zeros(2 * numPts, 2 * numPts)
+    globalStiffness := matrix.zeros(2 * numPts, 2 * numPts)
 
     for _, el in els {
-        for i in el.stiffness {
-            iGlobal := el.convertDofToGlobal(i)
-
-            for j in el.stiffness {
-
+        for row in el.stiffness {
+            globalRow := el.convertDofToGlobal(row)
+            for col in el.stiffness[0] {
+                globalCol := el.convertDofToGlobal(col)
+                globalStiffness[globalRow][globalCol] += el.stiffness[row][col]
             }
         }
-
     }
 
+    return globalStiffness
+}
 
-    return stiffness
+fn reduceGlobalStiffness(stiffness: matrix.Matrix, constraints: map[int]bool): matrix.Matrix {
+    constrainedDofs := map[int]bool{}
+    
+    for pt, exists in constraints {
+        if !exists {continue}
+        
+        // Each point constraint constrains both X and Y displacements
+        constrainedDofs[2 * pt] = true
+        constrainedDofs[2 * pt + 1] = true
+    }
+
+    return stiffness.remove(constrainedDofs, constrainedDofs)
 }
 
 fn test*() {
@@ -82,6 +94,25 @@ fn test*() {
         {2, 3, 1}
     }
 
+    constrainedDofs := map[int]bool{
+        1: true,
+        4: true,
+        5: true,
+        6: true,
+        7: true
+    }
+
+    forces := matrix.Matrix{
+        {0}, 
+        {0}, 
+        {0}, 
+        {-1000},     // lbf
+        {0}, 
+        {0}, 
+        {0}, 
+        {0}
+    }
+
     material := Material{
         young:     30e6,    // psi    
         poisson:   0.25,
@@ -93,9 +124,13 @@ fn test*() {
         createElement(pts, tris[1], material)
     }
 
-    printf("%v\n\n%v\n", 
-        els[0].stiffness.mulf(1e-7),
-        els[1].stiffness.mulf(1e-7)
-    )
+    stiffness := getGlobalStiffness(els, len(pts))
+    reducedStiffness := stiffness.remove(constrainedDofs, constrainedDofs)
+
+    reducedForces := forces.remove(constrainedDofs, {})
+
+    displacements := reducedStiffness.solve(reducedForces)
+
+    printf("%v\n", displacements)
 }
 

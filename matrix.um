@@ -1,96 +1,147 @@
 // Matrix algebra
 
-type Matrix* = [][]real
+type (
+    Matrix* = [][]real
+    IntSet* = map[int]bool
+)
 
 fn assert(cond: bool, msg: str = "") {
-	if !cond {
-		error("Assertion failed " + msg)
-	}
+    if !cond {
+        error("Assertion failed " + msg)
+    }
+}
+
+fn (ints: ^IntSet) size(): int {
+    sz := 0
+    for _, exists in ints {
+        if exists {sz++}
+    }
+    return sz
 }
 
 fn zeros*(rows, cols: int): Matrix {
-	m := make(Matrix, rows)
-	for i in m {
-		m[i] = make([]real, cols)
-	}
-	return m
+    m := make(Matrix, rows)
+    for i in m {
+        m[i] = make([]real, cols)
+    }
+    return m
 }
 
 fn (m: ^Matrix) rows*(): int {
-	return len(m^)
+    return len(m^)
 }
 
 fn (m: ^Matrix) cols*(): int {
-	return len(m^) > 0 ? len(m[0]) : 0
+    return len(m^) > 0 ? len(m[0]) : 0
 }
 
-fn (m: ^Matrix) remove*(rows, cols: map[int]bool): Matrix {
-	res := zeros(m.rows() - len(rows), m.cols() - len(cols))
-	i := 0
-	for mi in m {
-		if rows[mi] {continue} 
-		j := 0
-		for mj in m[mi] {
-			if cols[mj] {continue}
-			res[i][j] = m[mi][mj]
-			j++
-		}
-		i++
-	}
-	return res
+fn (m: ^Matrix) remove*(rows, cols: IntSet): Matrix {
+    res := zeros(m.rows() - rows.size(), m.cols() - cols.size())
+    i := 0
+    for mi in m {
+        if rows[mi] {continue} 
+        j := 0
+        for mj in m[mi] {
+            if cols[mj] {continue}
+            res[i][j] = m[mi][mj]
+            j++
+        }
+        i++
+    }
+    return res
 }
 
 fn (m: ^Matrix) add*(n: Matrix): Matrix {
-	assert(m.rows() == n.rows() && m.cols() == n.cols())	
-	res := zeros(m.rows(), m.cols())
-	for i in res {
-		for j in res[i] {
-			res[i][j] = m[i][j] + n[i][j]
-		}
-	}
-	return res
+    assert(m.rows() == n.rows() && m.cols() == n.cols())    
+    res := zeros(m.rows(), m.cols())
+    for i in res {
+        for j in res[i] {
+            res[i][j] = m[i][j] + n[i][j]
+        }
+    }
+    return res
 }
 
 fn (m: ^Matrix) sub*(n: Matrix): Matrix {
-	assert(m.rows() == n.rows() && m.cols() == n.cols())	
-	res := zeros(m.rows(), m.cols())
-	for i in res {
-		for j in res[i] {
-			res[i][j] = m[i][j] - n[i][j]
-		}
-	}
-	return res
+    assert(m.rows() == n.rows() && m.cols() == n.cols())    
+    res := zeros(m.rows(), m.cols())
+    for i in res {
+        for j in res[i] {
+            res[i][j] = m[i][j] - n[i][j]
+        }
+    }
+    return res
 }
 
 fn (m: ^Matrix) mul*(n: Matrix): Matrix {
-	assert(m.cols() == n.rows())	
-	res := zeros(m.rows(), n.cols())
-	for i in res {
-		for j in res[i] {
-			for k in n {
-				res[i][j] += m[i][k] * n[k][j]
-			}
-		}
-	}
-	return res
+    assert(m.cols() == n.rows())    
+    res := zeros(m.rows(), n.cols())
+    for i in res {
+        for j in res[i] {
+            for k in n {
+                res[i][j] += m[i][k] * n[k][j]
+            }
+        }
+    }
+    return res
 }
 
-fn (m: ^Matrix) mulf*(a: real): Matrix {	
-	res := zeros(m.rows(), m.cols())
-	for i in res {
-		for j in res[i] {
-			res[i][j] = m[i][j] * a
-		}
-	}
-	return res
+fn (m: ^Matrix) mulf*(a: real): Matrix {    
+    res := zeros(m.rows(), m.cols())
+    for i in res {
+        for j in res[i] {
+            res[i][j] = m[i][j] * a
+        }
+    }
+    return res
 }
 
 fn (m: ^Matrix) transpose*(): Matrix {
-	res := zeros(m.cols(), m.rows())
-	for i in res {
-		for j in res[i] {
-			res[i][j] = m[j][i]
-		}
-	}
-	return res
+    res := zeros(m.cols(), m.rows())
+    for i in res {
+        for j in res[i] {
+            res[i][j] = m[j][i]
+        }
+    }
+    return res
+}
+
+fn (m: ^Matrix) solve*(rhs: Matrix): Matrix {
+    // Gauss elimination
+    assert(m.rows() == m.cols() && m.rows() == rhs.rows() && rhs.cols() == 1)
+    
+    // Append the right-hand side column vector to the matrix
+    augmented := zeros(m.rows(), m.cols() + 1)
+    for i in m {
+        for j in m[i] {
+            augmented[i][j] = m[i][j]
+        }
+        augmented[i][m.cols()] = rhs[i][0]
+    }
+
+    // Triangualarize the augmented matrix 
+    for pivotIndex in augmented {
+        pivot := augmented[pivotIndex][pivotIndex]
+        assert(pivot != 0.0, "Matrix must be positive definite")
+
+        for i := pivotIndex + 1; i < augmented.rows(); i++ {
+            factor := augmented[i][pivotIndex] / pivot
+            
+            for j := pivotIndex; j < augmented.cols(); j++ {
+                augmented[i][j] -= factor * augmented[pivotIndex][j]
+            }
+        }                   
+    }
+
+    // Solve
+    res := zeros(m.rows(), 1)
+    for i := m.rows() - 1; i >= 0; i-- {
+        sum := augmented[i][augmented.cols() - 1]
+        for j := m.cols() - 1; j >= i + 1; j-- {
+            sum -= augmented[i][j] * res[j][0]        
+        }
+
+        res[i][0] = sum / augmented[i][i]
+    }
+    return res
 }
