@@ -1,0 +1,70 @@
+// Matrix algebra
+
+type Matrix* = [][]real
+
+fn assert(cond: bool, msg: str = "") {
+	if !cond {
+		error("Assertion failed " + msg)
+	}
+}
+
+fn create*(rows, cols: int): Matrix {
+	m := make(Matrix, rows)
+	for i in m {
+		m[i] = make([]real, cols)
+	}
+	return m
+}
+
+fn (m: ^Matrix) rows*(): int {
+	return len(m)
+}
+
+fn (m: ^Matrix) cols*(): int {
+	return len(m) > 0 ? len(m[0]) : 0
+}
+
+fn (m: ^Matrix) add*(n: Matrix): Matrix {
+	assert(m.rows() == n.rows() && m.cols() == n.cols())	
+	res := create(m.rows(), m.cols())
+	for i in res {
+		for j in res[i] {
+			res[i][j] = m[i][j] + n[i][j]
+		}
+	}
+	return res
+}
+
+fn (m: ^Matrix) sub*(n: Matrix): Matrix {
+	assert(m.rows() == n.rows() && m.cols() == n.cols())	
+	res := create(m.rows(), m.cols())
+	for i in res {
+		for j in res[i] {
+			res[i][j] = m[i][j] - n[i][j]
+		}
+	}
+	return res
+}
+
+fn (m: ^Matrix) mul*(n: Matrix): Matrix {
+	assert(m.cols() == n.rows())	
+	res := create(m.rows(), n.cols())
+	for i in res {
+		for j in res[i] {
+			for k in n {
+				res[i][j] += m[i][k] * n[k][j]
+			}
+		}
+	}
+	return res
+}
+
+fn (m: ^Matrix) transpose*(): Matrix {
+	res := create(m.cols(), m.rows())
+	for i in res {
+		for j in res[i] {
+			res[i][j] = m[j][i]
+		}
+	}
+	return res
+}
