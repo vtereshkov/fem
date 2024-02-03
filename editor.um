@@ -69,7 +69,7 @@ const (
     LINE_WIDTH                  = 3
     FORCE_LENGTH                = 40
     DEFAULT_SCALE               = 4000    // pix/m
-    DISPLACEMENT_EXAGGERATION   = 100
+    DISPLACEMENT_EXAGGERATION   = 10
 )
 
 fn sign(x: real): real {
@@ -163,6 +163,14 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     // Delete point
     ed.pts = delete(ed.pts, ed.selectedPt)
     ed.selectedPt = -1
+}
+
+fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
+    pt := ed.pts[ptIndex]
+    if ed.showDeformed {
+        pt = pt.add(ed.displacements[ptIndex].mulf(DISPLACEMENT_EXAGGERATION))
+    }
+    return pt  
 }
 
 fn (ed: ^Editor) triangulate(): bool {
@@ -374,13 +382,8 @@ fn (ed: ^Editor) drawPoints() {
 fn (ed: ^Editor) drawTriangles() {
     for _, tri in ed.tris {
         var screenPt: [3]th.Vf2
-
-        for i, pt in tri {
-            worldPt := ed.pts[pt]
-            if ed.showDeformed {
-                worldPt = worldPt.add(ed.displacements[pt].mulf(DISPLACEMENT_EXAGGERATION))
-            }
-            screenPt[i] = worldPt.transformed(ed.cam)
+        for i, ptIndex in tri {
+            screenPt[i] = ed.getDisplacedPt(ptIndex).transformed(ed.cam)
         }
         
         canvas.drawQuad(0x444444FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
@@ -392,11 +395,9 @@ fn (ed: ^Editor) drawTriangles() {
 
 fn (ed: ^Editor) drawForces(ft: font.Font) {
     for ptIndex, force in ed.forces {
-        if force.x == 0.0 && force.y == 0.0 {
-            continue
-        }
+        if force.mag() == 0.0 {continue}
 
-        screenPt0 := ed.pts[ptIndex].transformed(ed.cam)
+        screenPt0 := ed.getDisplacedPt(ptIndex).transformed(ed.cam)
 
         if force.x != 0 {
             sgn := sign(force.x * ed.cam.s.x)
