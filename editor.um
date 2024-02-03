@@ -38,7 +38,7 @@ type (
         curMaterial: ^fem.Material
 
         cam: th.Transform
-
+        showDeformed: bool
         errCode: int
     }
 )
@@ -65,10 +65,11 @@ const (
 )
 
 const (
-    POINT_SIZE   = 10
-    LINE_WIDTH   = 3
-    FORCE_LENGTH = 40
-    DEFAULT_SCALE = 4000    // pix/m
+    POINT_SIZE                  = 10
+    LINE_WIDTH                  = 3
+    FORCE_LENGTH                = 40
+    DEFAULT_SCALE               = 4000    // pix/m
+    DISPLACEMENT_EXAGGERATION   = 100
 )
 
 fn sign(x: real): real {
@@ -372,10 +373,14 @@ fn (ed: ^Editor) drawPoints() {
 
 fn (ed: ^Editor) drawTriangles() {
     for _, tri in ed.tris {
-        screenPt := [3]th.Vf2{
-            ed.pts[tri[0]].transformed(ed.cam),
-            ed.pts[tri[1]].transformed(ed.cam),
-            ed.pts[tri[2]].transformed(ed.cam)
+        var screenPt: [3]th.Vf2
+
+        for i, pt in tri {
+            worldPt := ed.pts[pt]
+            if ed.showDeformed {
+                worldPt = worldPt.add(ed.displacements[pt].mulf(DISPLACEMENT_EXAGGERATION))
+            }
+            screenPt[i] = worldPt.transformed(ed.cam)
         }
         
         canvas.drawQuad(0x444444FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
