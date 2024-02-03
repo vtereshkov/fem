@@ -40,8 +40,6 @@ var (
 )
 
 fn init*() {
-    fem.test()
-    
     window.setup("I LOVE FEM", 1300, 600)
 
     ft = font.load("sans.ttf", 16, font.filterLinear)

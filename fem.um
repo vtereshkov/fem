@@ -13,7 +13,7 @@ type (
 
     Element* = struct {
         tri: [3]int
-        stiffness: matrix.Matrix
+        geometry, elasticity, stiffness: matrix.Matrix
     }
 )
 
@@ -31,106 +31,109 @@ fn createElement*(pts: []th.Vf2, tri: [3]int, material: Material): Element {
     det := b.x * c.y - c.x * b.y
     area := 0.5 * fabs(det)
 
-    geometry := matrix.Matrix{
+    el.geometry = matrix.Matrix{
         {-b.y,    0, -c.y,    0, -a.y,    0},
         {   0,  b.x,    0,  c.x,    0,  a.x},
         { b.x, -b.y,  c.x, -c.y,  a.x, -a.y}
     }.mulf(1.0 / det)
 
-    elasticity := matrix.Matrix{
+    el.elasticity = matrix.Matrix{
         {               1, material.poisson,                          0},
         {material.poisson,                1,                          0},
         {               0,                0, (1 - material.poisson) / 2}
     }.mulf(material.young / (1 - material.poisson * material.poisson))
 
-    el.stiffness = geometry.transpose().mul(elasticity).mul(geometry).mulf(material.thickness * area)
+    el.stiffness = el.geometry.transpose().mul(el.elasticity).mul(el.geometry).mulf(material.thickness * area)
     return el
 }
 
-fn (el: ^Element) convertDofToGlobal(i: int): int {
-    return 2 * el.tri[i / 2] + (i % 2)
+fn (el: ^Element) convertDofToGlobal(dof: int): int {
+    return 2 * el.tri[dof / 2] + (dof % 2)
 }
 
 fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
-    globalStiffness := matrix.zeros(2 * numPts, 2 * numPts)
+    stiffness := matrix.zeros(2 * numPts, 2 * numPts)
 
     for _, el in els {
         for row in el.stiffness {
             globalRow := el.convertDofToGlobal(row)
             for col in el.stiffness[0] {
                 globalCol := el.convertDofToGlobal(col)
-                globalStiffness[globalRow][globalCol] += el.stiffness[row][col]
+                stiffness[globalRow][globalCol] += el.stiffness[row][col]
             }
         }
     }
 
-    return globalStiffness
+    return stiffness
 }
 
-fn reduceGlobalStiffness(stiffness: matrix.Matrix, constraints: map[int]bool): matrix.Matrix {
-    constrainedDofs := map[int]bool{}
+fn getDofForces(forces: map[int]th.Vf2, numPts: int): matrix.Matrix {
+    // Flatten force vectors into a single column vector
+    dofForces := matrix.zeros(2 * numPts, 1)
+
+    for pt, force in forces {
+        if force.mag() == 0 {continue}
+
+        dofForces[2 * pt][0] = force.x
+        dofForces[2 * pt + 1][0] = force.y
+    }
+
+    return dofForces
+}
+
+fn getDofConstraints(constraints: map[int]bool): map[int]bool {
+    // Each point constraint constrains both X and Y displacements
+    dofConstraints := map[int]bool{}
     
     for pt, exists in constraints {
         if !exists {continue}
-        
-        // Each point constraint constrains both X and Y displacements
-        constrainedDofs[2 * pt] = true
-        constrainedDofs[2 * pt + 1] = true
+
+        dofConstraints[2 * pt] = true
+        dofConstraints[2 * pt + 1] = true
     }
 
-    return stiffness.remove(constrainedDofs, constrainedDofs)
+    return dofConstraints     
 }
 
-fn test*() {
-    pts := []th.Vf2{        // inches
-        {3, 0},
-        {3, 2},
-        {0, 2},
-        {0, 0}
+fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstraints: map[int]bool, numPts: int): []th.Vf2 {
+    displacements := make([]th.Vf2, numPts)
+
+    for dof, unconstrainedDofDisplacement in unconstrainedDofDisplacements {
+        if dof % 2 == 0 {
+            displacements[dof / 2].x = unconstrainedDofDisplacement[0]
+        } else {
+            displacements[dof / 2].y = unconstrainedDofDisplacement[0]
+        }
     }
 
-    tris := [][3]int{
-        {0, 1, 3},
-        {2, 3, 1}
+    return displacements
+} 
+
+fn solve*(pts: []th.Vf2, tris: [][3]int, forces: map[int]th.Vf2, constraints: map[int]bool, material: Material): ([]th.Vf2, []real) {
+    // The DOFs are point displacements: {displacements[0].x, displacements[0].y, displacements[1].x, displacements[1].y, ...}
+
+    // Create finite elements
+    els := make([]Element, len(tris))
+    for i in tris {
+        els[i] = createElement(pts, tris[i], material)
     }
 
-    constrainedDofs := map[int]bool{
-        1: true,
-        4: true,
-        5: true,
-        6: true,
-        7: true
-    }
-
-    forces := matrix.Matrix{
-        {0}, 
-        {0}, 
-        {0}, 
-        {-1000},     // lbf
-        {0}, 
-        {0}, 
-        {0}, 
-        {0}
-    }
-
-    material := Material{
-        young:     30e6,    // psi    
-        poisson:   0.25,
-        thickness: 0.5      // inches
-    }
-
-    els := []Element{
-        createElement(pts, tris[0], material),
-        createElement(pts, tris[1], material)
-    }
-
+    // Get global stiffness matrix
     stiffness := getGlobalStiffness(els, len(pts))
-    reducedStiffness := stiffness.remove(constrainedDofs, constrainedDofs)
+    
+    // Get DOF-wise forces and constraints
+    dofForces := getDofForces(forces, len(pts))
+    dofConstraints := getDofConstraints(constraints)
 
-    reducedForces := forces.remove(constrainedDofs, {})
+    // Remove constrained DOFs
+    unconstrainedStiffness := stiffness.remove(dofConstraints, dofConstraints)
+    unconstrainedDofForces := dofForces.remove(dofConstraints, {})
 
-    displacements := reducedStiffness.solve(reducedForces)
+    // Solve the equation: unconstrainedStiffness * unconstrainedDofDisplacements = unconstrainedDofForces
+    unconstrainedDofDisplacements := unconstrainedStiffness.solve(unconstrainedDofForces)
 
-    printf("%v\n", displacements)
+    // Get point displacements from DOF displacements
+    displacements := getPtDisplacements(unconstrainedDofDisplacements, dofConstraints, len(pts))
+
+    return displacements, []real{}
 }
-

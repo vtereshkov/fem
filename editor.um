@@ -13,9 +13,7 @@ type (
         isHole: bool
     }
 
-    Triangle = struct {
-        vert: [3]int
-    }
+    Triangle = [3]int
 
     PointSet = map[int]bool
 
@@ -30,6 +28,9 @@ type (
 
         constraints: PointSet
         forces: ForceSet
+
+        displacements: []th.Vf2
+        stresses: []real
 
         selectedPt: int
         curPoly: Poly
@@ -191,7 +192,7 @@ fn (ed: ^Editor) triangulate(): bool {
     }
 
     for tri in triangles {
-        ed.tris = append(ed.tris, Triangle{tri})          
+        ed.tris = append(ed.tris, Triangle(tri))          
     }
 
     return true
@@ -213,7 +214,7 @@ fn (ed: ^Editor) calculate() {
         return
     }
 
-    // TODO: Run FEM
+    ed.displacements, ed.stresses = fem.solve(ed.pts, ed.tris, ed.forces, ed.constraints, ed.curMaterial^)
 }
 
 fn (ed: ^Editor) init*() {
@@ -372,9 +373,9 @@ fn (ed: ^Editor) drawPoints() {
 fn (ed: ^Editor) drawTriangles() {
     for _, tri in ed.tris {
         screenPt := [3]th.Vf2{
-            ed.pts[tri.vert[0]].transformed(ed.cam),
-            ed.pts[tri.vert[1]].transformed(ed.cam),
-            ed.pts[tri.vert[2]].transformed(ed.cam)
+            ed.pts[tri[0]].transformed(ed.cam),
+            ed.pts[tri[1]].transformed(ed.cam),
+            ed.pts[tri[2]].transformed(ed.cam)
         }
         
         canvas.drawQuad(0x444444FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
