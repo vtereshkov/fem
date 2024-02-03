@@ -98,12 +98,14 @@ fn getDofConstraints(constraints: map[int]bool): map[int]bool {
 fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstraints: map[int]bool, numPts: int): []th.Vf2 {
     displacements := make([]th.Vf2, numPts)
 
-    for dof, unconstrainedDofDisplacement in unconstrainedDofDisplacements {
-        if dof % 2 == 0 {
-            displacements[dof / 2].x = unconstrainedDofDisplacement[0]
-        } else {
-            displacements[dof / 2].y = unconstrainedDofDisplacement[0]
-        }
+    dof := 0
+    for pt in displacements {
+        if dofConstraints[2 * pt] {continue}
+
+        displacements[pt].x = unconstrainedDofDisplacements[dof][0]
+        displacements[pt].y = unconstrainedDofDisplacements[dof + 1][0] 
+
+        dof += 2
     }
 
     return displacements
