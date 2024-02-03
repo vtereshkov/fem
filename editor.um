@@ -4,6 +4,7 @@ import (
     "font.um"
 
     "delaunay.um"
+    "fem.um"
 )
 
 type (
@@ -20,10 +21,6 @@ type (
 
     ForceSet = map[int]th.Vf2
 
-    Material* = struct {
-        young, poisson, thickness: real
-    }
-
     Editor* = struct {
         cmd: int
 
@@ -37,7 +34,7 @@ type (
         selectedPt: int
         curPoly: Poly
         curForce: ^th.Vf2
-        curMaterial: ^Material
+        curMaterial: ^fem.Material
 
         cam: th.Transform
 
@@ -104,10 +101,6 @@ fn (constraints: ^PointSet) isValid(): bool {
     constraints^ = constraints.condense()
     return len(constraints^) >= 2
 } 
-
-fn (mat: ^Material) isValid(): bool {
-    return mat.young > 0 && mat.poisson > 0 && mat.poisson < 0.5 && mat.thickness > 0
-}
 
 fn (ed: ^Editor) isClockwise(poly: Poly): bool {
     sum := 0.0
@@ -224,7 +217,7 @@ fn (ed: ^Editor) calculate() {
 }
 
 fn (ed: ^Editor) init*() {
-    ed.curMaterial = &Material{young: 200e9, poisson: 0.3, thickness: 0.001}
+    ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, thickness: 0.001}
     ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }

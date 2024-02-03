@@ -1,0 +1,101 @@
+// 2D finite element method solver
+
+import (
+    "th.um"
+
+    "matrix.um"
+)
+
+type (
+    Material* = struct {
+        young, poisson, thickness: real
+    }
+
+    Element* = struct {
+        tri: [3]int
+        stiffness: matrix.Matrix
+    }
+)
+
+fn (mat: ^Material) isValid*(): bool {
+    return mat.young > 0 && mat.poisson > 0 && mat.poisson < 0.5 && mat.thickness > 0
+}
+
+fn createElement*(pts: []th.Vf2, tri: [3]int, material: Material): Element {
+    el := Element{tri: tri}
+
+    a := pts[tri[1]].sub(pts[tri[0]])
+    b := pts[tri[2]].sub(pts[tri[1]])
+    c := pts[tri[0]].sub(pts[tri[2]])
+
+    det := b.x * c.y - c.x * b.y
+    area := 0.5 * fabs(det)
+
+    geometry := matrix.Matrix{
+        {-b.y,    0, -c.y,    0, -a.y,    0},
+        {   0,  b.x,    0,  c.x,    0,  a.x},
+        { b.x, -b.y,  c.x, -c.y,  a.x, -a.y}
+    }.mulf(1.0 / det)
+
+    elasticity := matrix.Matrix{
+        {               1, material.poisson,                          0},
+        {material.poisson,                1,                          0},
+        {               0,                0, (1 - material.poisson) / 2}
+    }.mulf(material.young / (1 - material.poisson * material.poisson))
+
+    el.stiffness = geometry.transpose().mul(elasticity).mul(geometry).mulf(material.thickness * area)
+    return el
+}
+
+fn (el: ^Element) convertDofToGlobal(i: int): int {
+    return 2 * el.tri[i / 2] + (i % 2)
+}
+
+fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
+    stiffness := matrix.zeros(2 * numPts, 2 * numPts)
+
+    for _, el in els {
+        for i in el.stiffness {
+            iGlobal := el.convertDofToGlobal(i)
+
+            for j in el.stiffness {
+
+            }
+        }
+
+    }
+
+
+    return stiffness
+}
+
+fn test*() {
+    pts := []th.Vf2{        // inches
+        {3, 0},
+        {3, 2},
+        {0, 2},
+        {0, 0}
+    }
+
+    tris := [][3]int{
+        {0, 1, 3},
+        {2, 3, 1}
+    }
+
+    material := Material{
+        young:     30e6,    // psi    
+        poisson:   0.25,
+        thickness: 0.5      // inches
+    }
+
+    els := []Element{
+        createElement(pts, tris[0], material),
+        createElement(pts, tris[1], material)
+    }
+
+    printf("%v\n\n%v\n", 
+        els[0].stiffness.mulf(1e-7),
+        els[1].stiffness.mulf(1e-7)
+    )
+}
+

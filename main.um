@@ -6,6 +6,7 @@ import (
     "font.um"
     "rect.um"
 
+    "fem.um"
     "editor.um"
 )
 
@@ -39,6 +40,8 @@ var (
 )
 
 fn init*() {
+    fem.test()
+    
     window.setup("I LOVE FEM", 1300, 600)
 
     ft = font.load("sans.ttf", 16, font.filterLinear)
@@ -114,7 +117,7 @@ fn init*() {
 
         // Process material text boxes data
         if ed.cmd == editor.CMD_ENTER_MATERIAL {
-            material := new(editor.Material)
+            material := new(fem.Material)
 
             ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
                   sscanf(poissonTextBox.getBuf(),   "%lf", &material.poisson)   == 1 &&
