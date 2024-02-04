@@ -119,6 +119,17 @@ fn (ed: ^Editor) isClockwise(poly: Poly): bool {
     return sum > 0.0
 }
 
+fn (ed: ^Editor) isInPoly(ptIndex: int): bool {
+    for _, poly in ed.polys {
+        for _, pt in poly.vert {
+            if pt == ptIndex {
+                return true
+            }
+        }
+    }
+    return false
+}
+
 fn (ed: ^Editor) findPoint(pos: th.Vf2): int {
     for i, pt in ed.pts {
         if fabs((pos.x - pt.x) * ed.cam.s.x) < POINT_SIZE && fabs((pos.y - pt.y) * ed.cam.s.y) < POINT_SIZE {
@@ -313,7 +324,9 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
 
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
-                ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
+                if !ed.isInPoly(existingPt) {
+                    ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
+                }
             } else {            
                 ed.pts = append(ed.pts, worldPos)
                 ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pts) - 1)
