@@ -412,12 +412,14 @@ fn (ed: ^Editor) drawForces(ft: font.Font) {
         if force.x != 0 {
             sgn := sign(force.x * ed.cam.s.x)
 
-            screenPt := screenPt0.add({sgn * FORCE_LENGTH, 0})
+            screenPt := screenPt0.add({-sgn * FORCE_LENGTH, 0})
             canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * FORCE_LENGTH / 2,  5}), 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * FORCE_LENGTH / 2, -5}), 2)
 
             text := sprintf("%g N", force.x)
             textSize := ft.measure(text)
-            textPos := screenPt.add({(sgn > 0.0 ? 10.0 : -10.0 - textSize.x), -textSize.y / 2})
+            textPos := screenPt.add({(sgn < 0.0 ? 10.0 : -10.0 - textSize.x), -textSize.y / 2})
             
             ft.draw(text, textPos, th.yellow, 1)
         }
@@ -425,12 +427,14 @@ fn (ed: ^Editor) drawForces(ft: font.Font) {
         if force.y != 0 {
             sgn := sign(force.y * ed.cam.s.y)
 
-            screenPt := screenPt0.add({0, sgn * FORCE_LENGTH})
+            screenPt := screenPt0.add({0, -sgn * FORCE_LENGTH})
             canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({ 5, -sgn * FORCE_LENGTH / 2}), 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-5, -sgn * FORCE_LENGTH / 2}), 2)            
 
             text := sprintf("%g N", force.y)
             textSize := ft.measure(text)
-            textPos := screenPt.add({-textSize.x / 2, (sgn > 0.0 ? 10.0 : -10.0 - textSize.y)})
+            textPos := screenPt.add({-textSize.x / 2, (sgn < 0.0 ? 10.0 : -10.0 - textSize.y)})
 
             ft.draw(text, textPos, th.yellow, 1)
         }               
