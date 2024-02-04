@@ -1,4 +1,6 @@
 import (
+    "std.um"
+
     "th.um"
     "canvas.um"
     "font.um"
@@ -81,6 +83,10 @@ fn sign(x: real): real {
 fn clamp(x, max: real): real {
     if x > max {return max}
     return x
+}
+
+fn noise(): real {
+    return 1e-6 * (std.frand() - 0.5)
 }
 
 fn inverse(t: th.Transform): th.Transform {
@@ -293,7 +299,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
 }
 
 fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
-    worldPos := pos.transformed(inverse(ed.cam))
+    worldPos := pos.transformed(inverse(ed.cam)).add({noise(), noise()})
 
     switch ed.cmd {
         case CMD_EDIT_POINT, CMD_DELETE_POINT: 
@@ -340,7 +346,7 @@ fn (ed: ^Editor) processRightClick*() {
 
 fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
     if ed.cmd == CMD_EDIT_POINT && ed.selectedPt >= 0 {
-        worldPos := pos.transformed(inverse(ed.cam))        
+        worldPos := pos.transformed(inverse(ed.cam)).add({noise(), noise()})        
         ed.pts[ed.selectedPt] = worldPos     
     }
 }
