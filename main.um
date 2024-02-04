@@ -146,9 +146,9 @@ fn init*() {
                   sscanf(thicknessTextBox.getBuf(), "%lf", &material.thickness) == 1
 
             if ok {
-                material.young /= 1e9       // GPa -> Pa
-                material.yield /= 1e9       // GPa -> Pa
-                material.thickness /= 1e3   // mm  -> m
+                material.young *= 1e9       // GPa -> Pa
+                material.yield *= 1e9       // GPa -> Pa
+                material.thickness *= 1e-3  // mm  -> m
                 ed.curMaterial = material 
             } else {
                 ed.curMaterial = null
