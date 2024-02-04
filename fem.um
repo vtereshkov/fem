@@ -8,7 +8,7 @@ import (
 
 type (
     Material* = struct {
-        young, poisson, thickness: real
+        young, poisson, yield, thickness: real
     }
 
     Element* = struct {
@@ -49,6 +49,24 @@ fn createElement*(pts: []th.Vf2, tri: [3]int, material: Material): Element {
 
 fn (el: ^Element) convertDofToGlobal(dof: int): int {
     return 2 * el.tri[dof / 2] + (dof % 2)
+}
+
+fn (el: ^Element) getEquivalentStress(displacements: []th.Vf2): real {
+    dofDisplacements := matrix.Matrix{
+        {displacements[el.tri[0]].x},
+        {displacements[el.tri[0]].y},
+        {displacements[el.tri[1]].x},
+        {displacements[el.tri[1]].y},
+        {displacements[el.tri[2]].x},
+        {displacements[el.tri[2]].y}
+    }
+
+    stresses := el.elasticity.mul(el.geometry).mul(dofDisplacements)    // {X normal stress, Y normal stress, shear stress}
+
+    sqr := fn (x: real): real {return x * x}
+
+    // Von Mises stress
+    return sqrt(sqr(stresses[0][0]) - stresses[0][0] * stresses[1][0] + sqr(stresses[1][0]) + 3 * sqr(stresses[2][0]))
 }
 
 fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
@@ -109,7 +127,15 @@ fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstrain
     }
 
     return displacements
-} 
+}
+
+fn getEquivalentStresses(els: []Element, displacements: []th.Vf2): []real {
+    stresses := make([]real, len(els))
+    for i, el in els {
+        stresses[i] = el.getEquivalentStress(displacements)
+    }
+    return stresses
+}
 
 fn solve*(pts: []th.Vf2, tris: [][3]int, forces: map[int]th.Vf2, constraints: map[int]bool, material: Material): ([]th.Vf2, []real) {
     // The DOFs are point displacements: {displacements[0].x, displacements[0].y, displacements[1].x, displacements[1].y, ...}
@@ -137,5 +163,8 @@ fn solve*(pts: []th.Vf2, tris: [][3]int, forces: map[int]th.Vf2, constraints: ma
     // Get point displacements from DOF displacements
     displacements := getPtDisplacements(unconstrainedDofDisplacements, dofConstraints, len(pts))
 
-    return displacements, []real{}
+    // Get equivalent stresses for elements
+    stresses := getEquivalentStresses(els, displacements)
+
+    return displacements, stresses
 }

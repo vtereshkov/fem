@@ -33,9 +33,12 @@ const errStrings = [5]str{
 
 var (
     toolbarGui: ui.Gui
+
     forceTextBox: [2]ui.TextBox
-    youngTextBox, poissonTextBox, thicknessTextBox: ui.TextBox
+    youngTextBox, poissonTextBox, yieldTextBox, thicknessTextBox: ui.TextBox
+
     ed: editor.Editor
+
     ft: font.Font
 )
 
@@ -65,11 +68,12 @@ fn init*() {
     style.ft = ft
     toolbarGui = ui.mk(rect.mk(0, 0, 100, 10000), style)
 
-    forceTextBox[0].setBuf("100")
-    forceTextBox[1].setBuf("100")
+    forceTextBox[0].setBuf("1000")
+    forceTextBox[1].setBuf("1000")
 
     youngTextBox.setBuf("200")
     poissonTextBox.setBuf("0.3")
+    yieldTextBox.setBuf("1")
     thicknessTextBox.setBuf("1")
     
     ed.init()
@@ -102,6 +106,8 @@ fn init*() {
                         gui.textBox(&youngTextBox)
                         gui.label("Poisson", {centerX: true, centerY: true})
                         gui.textBox(&poissonTextBox)
+                        gui.label("Yield (GPa)", {centerX: true, centerY: true})
+                        gui.textBox(&yieldTextBox)                        
                         gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
                         gui.textBox(&thicknessTextBox)
 
@@ -136,10 +142,12 @@ fn init*() {
 
             ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
                   sscanf(poissonTextBox.getBuf(),   "%lf", &material.poisson)   == 1 &&
+                  sscanf(yieldTextBox.getBuf(),     "%lf", &material.yield)     == 1 &&
                   sscanf(thicknessTextBox.getBuf(), "%lf", &material.thickness) == 1
 
             if ok {
                 material.young /= 1e9       // GPa -> Pa
+                material.yield /= 1e9       // GPa -> Pa
                 material.thickness /= 1e3   // mm  -> m
                 ed.curMaterial = material 
             } else {

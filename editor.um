@@ -78,6 +78,11 @@ fn sign(x: real): real {
     return 0
 }
 
+fn clamp(x, max: real): real {
+    if x > max {return max}
+    return x
+}
+
 fn inverse(t: th.Transform): th.Transform {
     return {p: {-t.p.x / t.s.x, -t.p.y / t.s.y}, s: {1.0 / t.s.x, 1.0 / t.s.y}}
 }
@@ -227,7 +232,7 @@ fn (ed: ^Editor) calculate() {
 }
 
 fn (ed: ^Editor) init*() {
-    ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, thickness: 0.001}
+    ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
     ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }
@@ -380,13 +385,18 @@ fn (ed: ^Editor) drawPoints() {
 }
 
 fn (ed: ^Editor) drawTriangles() {
-    for _, tri in ed.tris {
+    for triIndex, tri in ed.tris {
         var screenPt: [3]th.Vf2
         for i, ptIndex in tri {
             screenPt[i] = ed.getDisplacedPt(ptIndex).transformed(ed.cam)
         }
         
-        canvas.drawQuad(0x444444FF, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
+        red   := round(0x99 * clamp(ed.stresses[triIndex] / ed.curMaterial.yield, 1.0))
+        green := 0x99 - red
+        blue  := 0
+        color := (red << 24) | (green << 16) | (blue << 8) | 0xFF
+
+        canvas.drawQuad(color, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
         canvas.drawLine(0xAAAAAAFF, screenPt[0], screenPt[1], 1)
         canvas.drawLine(0xAAAAAAFF, screenPt[1], screenPt[2], 1)
         canvas.drawLine(0xAAAAAAFF, screenPt[2], screenPt[0], 1)
