@@ -86,7 +86,7 @@ fn clamp(x, max: real): real {
 }
 
 fn noise(): real {
-    return 1e-6 * (std.frand() - 0.5)
+    return 1e-5 * (std.frand() - 0.5)
 }
 
 fn inverse(t: th.Transform): th.Transform {
