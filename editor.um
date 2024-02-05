@@ -133,6 +133,12 @@ fn (ed: ^Editor) isInPoly(ptIndex: int): bool {
             }
         }
     }
+
+    for _, pt in ed.curPoly.vert {
+        if pt == ptIndex {
+            return true
+        }
+    }    
     return false
 }
 
