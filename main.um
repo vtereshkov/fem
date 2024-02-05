@@ -34,6 +34,7 @@ const errStrings = [5]str{
 var (
     toolbarGui: ui.Gui
 
+    gridTextBox: ui.TextBox
     forceTextBox: [2]ui.TextBox
     youngTextBox, poissonTextBox, yieldTextBox, thicknessTextBox: ui.TextBox
     exaggerationTextBox: ui.TextBox
@@ -69,7 +70,9 @@ fn init*() {
     style.ft = ft
     toolbarGui = ui.mk(rect.mk(0, 0, 100, 10000), style)
 
-    ed.init()    
+    ed.init()
+
+    gridTextBox.setBuf(sprintf("%g", ed.gridSize / 1e-3))                           // m  -> mm
 
     forceTextBox[0].setBuf("1000")
     forceTextBox[1].setBuf("1000")
@@ -86,7 +89,7 @@ fn init*() {
 
         // Construct toolbar GUI
         layout := ui.LayoutFn {
-            gui.box({dimension: 30, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
+            gui.box({dimension: 20, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {   
                 // General command buttons
                 for cmd, cmdName in cmdNames {
@@ -97,10 +100,15 @@ fn init*() {
                     })
                 }
 
-                // Grid mode button
+                // Grid mode button and text box
                 latchButton(gui, "Grid", ed.useGrid, fn () {
                     ed.useGrid = !ed.useGrid
-                })                
+                })
+
+                if ed.useGrid {
+                    gui.label("Size (mm)", {centerX: true, centerY: true})                    
+                    gui.textBox(&gridTextBox)                    
+                }                
 
                 // Command-specific text boxes and buttons
                 switch ed.cmd {
@@ -120,7 +128,7 @@ fn init*() {
                         gui.textBox(&thicknessTextBox)
 
                     case editor.CMD_CALCULATE:
-                        latchButton(gui, "Show deformed", ed.showDeformed, fn () {
+                        latchButton(gui, "Deformed", ed.showDeformed, fn () {
                             ed.showDeformed = !ed.showDeformed
                         })
                         gui.label("Exaggeration", {centerX: true, centerY: true})
@@ -136,6 +144,15 @@ fn init*() {
         toolbarGui.eval(layout)
 
         // Process text box input
+        if ed.useGrid {
+            gridSize := 0.0
+            ok := sscanf(gridTextBox.getBuf(), "%lf", &gridSize) == 1
+            if ok {
+                gridSize *= 1e-3            // mm -> m
+                ed.gridSize = gridSize
+            }            
+        }
+
         switch ed.cmd {
             case editor.CMD_ENTER_FORCES:
                 force := new(th.Vf2)
@@ -164,9 +181,7 @@ fn init*() {
 
             case editor.CMD_CALCULATE:
                 exaggeration := 0.0
-
                 ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1
-
                 if ok {
                     ed.displacementExaggeration = exaggeration
                 }

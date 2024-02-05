@@ -42,8 +42,10 @@ type (
         showDeformed: bool
         displacementExaggeration: real
 
-        cam: th.Transform
         useGrid: bool
+        gridSize: real        
+
+        cam: th.Transform
         errCode: int
     }
 )
@@ -70,10 +72,9 @@ const (
 )
 
 const (
-    GRID_SIZE     = 0.005   // m
     POINT_SIZE    = 10      // pix
     LINE_WIDTH    = 3       // pix
-    FORCE_LENGTH  = 40      // pix
+    VECTOR_LENGTH  = 40      // pix
     DEFAULT_SCALE = 4000    // pix/m
 )
 
@@ -121,7 +122,7 @@ fn (constraints: ^PointSet) isValid(): bool {
 fn (ed: ^Editor) getWorldPos(pos: th.Vf2): th.Vf2 {
     worldPos := pos.transformed(inverse(ed.cam))
     if ed.useGrid {
-        worldPos = worldPos.divf(GRID_SIZE).round().mulf(GRID_SIZE)
+        worldPos = worldPos.divf(ed.gridSize).round().mulf(ed.gridSize)
     }
     // Prevent degenerate triangles
     worldPos = worldPos.add({noise(), noise()})
@@ -269,7 +270,8 @@ fn (ed: ^Editor) calculate() {
 fn (ed: ^Editor) init*() {
     ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
     ed.displacementExaggeration = 1
-    ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
+    ed.gridSize = 0.005
+    ed.cam = th.mkTransform({200, 200}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }
 
@@ -450,10 +452,10 @@ fn (ed: ^Editor) drawForces(ft: font.Font) {
         if force.x != 0 {
             sgn := sign(force.x * ed.cam.s.x)
 
-            screenPt := screenPt0.add({-sgn * FORCE_LENGTH, 0})
+            screenPt := screenPt0.add({-sgn * VECTOR_LENGTH, 0})
             canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * FORCE_LENGTH / 2,  5}), 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * FORCE_LENGTH / 2, -5}), 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2,  5}), 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2, -5}), 2)
 
             text := sprintf("%g N", force.x)
             textSize := ft.measure(text)
@@ -465,10 +467,10 @@ fn (ed: ^Editor) drawForces(ft: font.Font) {
         if force.y != 0 {
             sgn := sign(force.y * ed.cam.s.y)
 
-            screenPt := screenPt0.add({0, -sgn * FORCE_LENGTH})
+            screenPt := screenPt0.add({0, -sgn * VECTOR_LENGTH})
             canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({ 5, -sgn * FORCE_LENGTH / 2}), 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-5, -sgn * FORCE_LENGTH / 2}), 2)            
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({ 5, -sgn * VECTOR_LENGTH / 2}), 2)
+            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-5, -sgn * VECTOR_LENGTH / 2}), 2)            
 
             text := sprintf("%g N", force.y)
             textSize := ft.measure(text)
@@ -491,6 +493,13 @@ fn (ed: ^Editor) drawConstraints() {
             screenPt.add({ POINT_SIZE, POINT_SIZE * 2})
         })        
     }
+}
+
+fn (ed: ^Editor) drawCoordSystem() {
+    screenPt := th.Vf2{0, 0}.transformed(ed.cam)
+
+    canvas.drawLine(th.cyan, screenPt, screenPt.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0}), 2)
+    canvas.drawLine(th.cyan, screenPt, screenPt.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH}), 2)
 }
 
 fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
@@ -516,7 +525,6 @@ fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
 
 fn (ed: ^Editor) drawCursorPos(windowSize: th.Vf2, pos: th.Vf2, ft: font.Font) {
     worldPos := ed.getWorldPos(pos)
-    startPt := th.Vf2{windowSize.x - 50, windowSize.y - 30}
 
     text := sprintf("%d : %d", round(worldPos.x * 1000), round(worldPos.y * 1000))
     textSize := ft.measure(text)
@@ -547,6 +555,7 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
         ed.drawForces(ft)
         ed.drawConstraints()
         ed.drawPoints()
+        ed.drawCoordSystem()
     }
 
     ed.drawScaleBar(windowSize, ft)
