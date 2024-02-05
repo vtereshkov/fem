@@ -263,6 +263,14 @@ fn (ed: ^Editor) init*() {
 
 fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
+        case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+            if len(ed.curPoly.vert) > 2 {
+                if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
+                    ed.curPoly.reverse()
+                }
+                ed.polys = append(ed.polys, ed.curPoly)
+            }
+
         case CMD_DELETE_POINT:
             if ed.selectedPt >= 0 {
                 if ed.forces[ed.selectedPt].mag() != 0.0 {
@@ -272,15 +280,7 @@ fn (ed: ^Editor) endCmd*() {
                 } else {
                     ed.deleteSelectedPoint()
                 }
-            }
-
-        case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
-            if len(ed.curPoly.vert) > 2 {
-                if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
-                    ed.curPoly.reverse()
-                }
-                ed.polys = append(ed.polys, ed.curPoly)
-            }
+            }            
     }
 
     ed.selectedPt = -1
