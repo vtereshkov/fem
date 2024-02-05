@@ -77,7 +77,7 @@ fn init*() {
     youngTextBox.setBuf(sprintf("%g", ed.curMaterial.young / 1e9))                  // Pa -> GPa
     poissonTextBox.setBuf(sprintf("%g", ed.curMaterial.poisson))
     yieldTextBox.setBuf(sprintf("%g", ed.curMaterial.yield / 1e9))                  // Pa -> GPa
-    thicknessTextBox.setBuf(sprintf("%g", ed.curMaterial.thickness / 1e3))          // m  -> mm
+    thicknessTextBox.setBuf(sprintf("%g", ed.curMaterial.thickness / 1e-3))         // m  -> mm
 
     exaggerationTextBox.setBuf(sprintf("%g", ed.displacementExaggeration))
     
@@ -96,6 +96,11 @@ fn init*() {
                         }
                     })
                 }
+
+                // Grid mode button
+                latchButton(gui, "Grid", ed.useGrid, fn () {
+                    ed.useGrid = !ed.useGrid
+                })                
 
                 // Command-specific text boxes and buttons
                 switch ed.cmd {
@@ -181,7 +186,7 @@ fn init*() {
         }
 
         // Draw GUI
-        ed.draw(window.getDims(), ft)
+        ed.draw(window.getDims(), input.getMousePos(), ft)
         toolbarGui.draw(layout)
     })
 }

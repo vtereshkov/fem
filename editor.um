@@ -43,6 +43,7 @@ type (
         displacementExaggeration: real
 
         cam: th.Transform
+        useGrid: bool
         errCode: int
     }
 )
@@ -69,9 +70,10 @@ const (
 )
 
 const (
-    POINT_SIZE    = 10
-    LINE_WIDTH    = 3
-    FORCE_LENGTH  = 40
+    GRID_SIZE     = 0.005   // m
+    POINT_SIZE    = 10      // pix
+    LINE_WIDTH    = 3       // pix
+    FORCE_LENGTH  = 40      // pix
     DEFAULT_SCALE = 4000    // pix/m
 )
 
@@ -87,7 +89,7 @@ fn clamp(x, max: real): real {
 }
 
 fn noise(): real {
-    return 1e-5 * (std.frand() - 0.5)
+    return 1e-6 * (std.frand() - 0.5)
 }
 
 fn inverse(t: th.Transform): th.Transform {
@@ -114,6 +116,16 @@ fn (pts: ^PointSet) condense(): PointSet {
 fn (constraints: ^PointSet) isValid(): bool {
     constraints^ = constraints.condense()
     return len(constraints^) >= 2
+}
+
+fn (ed: ^Editor) getWorldPos(pos: th.Vf2): th.Vf2 {
+    worldPos := pos.transformed(inverse(ed.cam))
+    if ed.useGrid {
+        worldPos = worldPos.divf(GRID_SIZE).round().mulf(GRID_SIZE)
+    }
+    // Prevent degenerate triangles
+    worldPos = worldPos.add({noise(), noise()})
+    return worldPos
 } 
 
 fn (ed: ^Editor) isClockwise(poly: Poly): bool {
@@ -306,7 +318,7 @@ fn (ed: ^Editor) startCmd*(cmd: int) {
 }
 
 fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
-    worldPos := pos.transformed(inverse(ed.cam)).add({noise(), noise()})
+    worldPos := ed.getWorldPos(pos)
 
     switch ed.cmd {
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
@@ -353,7 +365,7 @@ fn (ed: ^Editor) processRightClick*() {
 
 fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
     if ed.cmd == CMD_EDIT_POINT && ed.selectedPt >= 0 {
-        worldPos := pos.transformed(inverse(ed.cam)).add({noise(), noise()})        
+        worldPos := ed.getWorldPos(pos)
         ed.pts[ed.selectedPt] = worldPos     
     }
 }
@@ -502,7 +514,26 @@ fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
     ft.draw(text, textPos, th.white, 1)
 }
 
-fn (ed: ^Editor) draw*(windowSize: th.Vf2, ft: font.Font) {
+fn (ed: ^Editor) drawCursorPos(windowSize: th.Vf2, pos: th.Vf2, ft: font.Font) {
+    worldPos := ed.getWorldPos(pos)
+    startPt := th.Vf2{windowSize.x - 50, windowSize.y - 30}
+
+    text := sprintf("%d : %d", round(worldPos.x * 1000), round(worldPos.y * 1000))
+    textSize := ft.measure(text)
+    textPos := th.Vf2{windowSize.x - 50 - textSize.x, windowSize.y - 30}
+
+    ft.draw(text, textPos, th.white, 1)
+}
+
+fn (ed: ^Editor) drawCursor(pos: th.Vf2) {
+    worldPos := ed.getWorldPos(pos)
+    screenPt := worldPos.transformed(ed.cam)
+
+    canvas.drawLine(0xAAAAAAFF, screenPt.add({-POINT_SIZE, 0}), screenPt.add({POINT_SIZE, 0}), 1)
+    canvas.drawLine(0xAAAAAAFF, screenPt.add({0, -POINT_SIZE}), screenPt.add({0, POINT_SIZE}), 1)
+}
+
+fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
     ed.drawBackground(windowSize)   
 
     if ed.cmd == CMD_CALCULATE {
@@ -519,5 +550,10 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2, ft: font.Font) {
     }
 
     ed.drawScaleBar(windowSize, ft)
+    ed.drawCursorPos(windowSize, cursorPos, ft)
+
+    if ed.useGrid {
+        ed.drawCursor(cursorPos)
+    }
 }
 
