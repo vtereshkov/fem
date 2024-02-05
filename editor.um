@@ -195,7 +195,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 
 fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
     pt := ed.pts[ptIndex]
-    if ed.showDeformed {
+    if ed.cmd == CMD_CALCULATE && ed.showDeformed {
         pt = pt.add(ed.displacements[ptIndex].mulf(ed.displacementExaggeration))
     }
     return pt  

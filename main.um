@@ -115,11 +115,11 @@ fn init*() {
                         gui.textBox(&thicknessTextBox)
 
                     case editor.CMD_CALCULATE:
-                        gui.label("Exaggeration", {centerX: true, centerY: true})
-                        gui.textBox(&exaggerationTextBox) 
                         latchButton(gui, "Show deformed", ed.showDeformed, fn () {
                             ed.showDeformed = !ed.showDeformed
                         })
+                        gui.label("Exaggeration", {centerX: true, centerY: true})
+                        gui.textBox(&exaggerationTextBox)
                 }           
 
                 // Error message
