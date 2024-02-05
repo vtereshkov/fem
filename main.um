@@ -89,15 +89,44 @@ fn init*() {
 
         // Construct toolbar GUI
         layout := ui.LayoutFn {
-            gui.box({dimension: 20, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
-            {   
-                // General command buttons
+            gui.box({dimension: 25, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
+            {                   
                 for cmd, cmdName in cmdNames {
+                    // Command button
                     latchButton(gui, cmdName, ed.cmd == cmd, fn () |cmd| {
                         if ed.cmd != cmd {
                             ed.startCmd(cmd)
-                        }
+                        }                        
                     })
+
+                    // Command-specific text boxes and buttons
+                    if ed.cmd == cmd {
+                        switch ed.cmd {
+                            case editor.CMD_ENTER_FORCES:
+                                gui.label("Force X, Y (N)", {centerX: true, centerY: true})
+                                gui.textBox(&forceTextBox[0])
+                                gui.textBox(&forceTextBox[1])
+
+                            case editor.CMD_ENTER_MATERIAL:
+                                gui.label("Young (GPa)", {centerX: true, centerY: true})
+                                gui.textBox(&youngTextBox)
+                                gui.label("Poisson", {centerX: true, centerY: true})
+                                gui.textBox(&poissonTextBox)
+                                gui.label("Yield (GPa)", {centerX: true, centerY: true})
+                                gui.textBox(&yieldTextBox)                        
+                                gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
+                                gui.textBox(&thicknessTextBox)
+
+                            case editor.CMD_CALCULATE:
+                                latchButton(gui, "Deformed", ed.showDeformed, fn () {
+                                    ed.showDeformed = !ed.showDeformed
+                                })
+                                if ed.showDeformed {
+                                    gui.label("Exaggeration", {centerX: true, centerY: true})
+                                    gui.textBox(&exaggerationTextBox)
+                                }
+                        }
+                    }
                 }
 
                 // Grid mode button and text box
@@ -108,32 +137,7 @@ fn init*() {
                 if ed.useGrid {
                     gui.label("Size (mm)", {centerX: true, centerY: true})                    
                     gui.textBox(&gridTextBox)                    
-                }                
-
-                // Command-specific text boxes and buttons
-                switch ed.cmd {
-                    case editor.CMD_ENTER_FORCES:
-                        gui.label("Force X, Y (N)", {centerX: true, centerY: true})
-                        gui.textBox(&forceTextBox[0])
-                        gui.textBox(&forceTextBox[1])
-
-                    case editor.CMD_ENTER_MATERIAL:
-                        gui.label("Young (GPa)", {centerX: true, centerY: true})
-                        gui.textBox(&youngTextBox)
-                        gui.label("Poisson", {centerX: true, centerY: true})
-                        gui.textBox(&poissonTextBox)
-                        gui.label("Yield (GPa)", {centerX: true, centerY: true})
-                        gui.textBox(&yieldTextBox)                        
-                        gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
-                        gui.textBox(&thicknessTextBox)
-
-                    case editor.CMD_CALCULATE:
-                        latchButton(gui, "Deformed", ed.showDeformed, fn () {
-                            ed.showDeformed = !ed.showDeformed
-                        })
-                        gui.label("Exaggeration", {centerX: true, centerY: true})
-                        gui.textBox(&exaggerationTextBox)
-                }           
+                }
 
                 // Error message
                 gui.label(errStrings[ed.errCode], {centerX: true, centerY: true})
@@ -180,10 +184,12 @@ fn init*() {
                 }
 
             case editor.CMD_CALCULATE:
-                exaggeration := 0.0
-                ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1
-                if ok {
-                    ed.displacementExaggeration = exaggeration
+                if ed.showDeformed {
+                    exaggeration := 0.0
+                    ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1
+                    if ok {
+                        ed.displacementExaggeration = exaggeration
+                    }
                 }
         }
 
