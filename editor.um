@@ -39,8 +39,10 @@ type (
         curForce: ^th.Vf2
         curMaterial: ^fem.Material
 
-        cam: th.Transform
         showDeformed: bool
+        displacementExaggeration: real
+
+        cam: th.Transform
         errCode: int
     }
 )
@@ -67,11 +69,10 @@ const (
 )
 
 const (
-    POINT_SIZE                  = 10
-    LINE_WIDTH                  = 3
-    FORCE_LENGTH                = 40
-    DEFAULT_SCALE               = 4000    // pix/m
-    DISPLACEMENT_EXAGGERATION   = 10
+    POINT_SIZE    = 10
+    LINE_WIDTH    = 3
+    FORCE_LENGTH  = 40
+    DEFAULT_SCALE = 4000    // pix/m
 )
 
 fn sign(x: real): real {
@@ -133,7 +134,6 @@ fn (ed: ^Editor) isInPoly(ptIndex: int): bool {
             }
         }
     }
-
     for _, pt in ed.curPoly.vert {
         if pt == ptIndex {
             return true
@@ -196,7 +196,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
     pt := ed.pts[ptIndex]
     if ed.showDeformed {
-        pt = pt.add(ed.displacements[ptIndex].mulf(DISPLACEMENT_EXAGGERATION))
+        pt = pt.add(ed.displacements[ptIndex].mulf(ed.displacementExaggeration))
     }
     return pt  
 }
@@ -256,6 +256,7 @@ fn (ed: ^Editor) calculate() {
 
 fn (ed: ^Editor) init*() {
     ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
+    ed.displacementExaggeration = 1
     ed.cam = th.mkTransform({0, 0}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }

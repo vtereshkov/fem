@@ -36,6 +36,7 @@ var (
 
     forceTextBox: [2]ui.TextBox
     youngTextBox, poissonTextBox, yieldTextBox, thicknessTextBox: ui.TextBox
+    exaggerationTextBox: ui.TextBox
 
     ed: editor.Editor
 
@@ -75,6 +76,8 @@ fn init*() {
     poissonTextBox.setBuf("0.3")
     yieldTextBox.setBuf("1")
     thicknessTextBox.setBuf("1")
+
+    exaggerationTextBox.setBuf("1")
     
     ed.init()
 
@@ -112,7 +115,8 @@ fn init*() {
                         gui.textBox(&thicknessTextBox)
 
                     case editor.CMD_CALCULATE:
-                        gui.label("")
+                        gui.label("Exaggeration", {centerX: true, centerY: true})
+                        gui.textBox(&exaggerationTextBox) 
                         latchButton(gui, "Show deformed", ed.showDeformed, fn () {
                             ed.showDeformed = !ed.showDeformed
                         })
@@ -126,33 +130,41 @@ fn init*() {
 
         toolbarGui.eval(layout)
 
-        // Process force text boxes data
-        if ed.cmd == editor.CMD_ENTER_FORCES {
-            force := new(th.Vf2)
+        // Process text box input
+        switch ed.cmd {
+            case editor.CMD_ENTER_FORCES:
+                force := new(th.Vf2)
 
-            ok := sscanf(forceTextBox[0].getBuf(), "%f", &force.x) == 1 &&
-                  sscanf(forceTextBox[1].getBuf(), "%f", &force.y) == 1
+                ok := sscanf(forceTextBox[0].getBuf(), "%f", &force.x) == 1 &&
+                      sscanf(forceTextBox[1].getBuf(), "%f", &force.y) == 1
 
-            ed.curForce = ok ? force : null
-        }
+                ed.curForce = ok ? force : null
 
-        // Process material text boxes data
-        if ed.cmd == editor.CMD_ENTER_MATERIAL {
-            material := new(fem.Material)
+            case editor.CMD_ENTER_MATERIAL:
+                material := new(fem.Material)
 
-            ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
-                  sscanf(poissonTextBox.getBuf(),   "%lf", &material.poisson)   == 1 &&
-                  sscanf(yieldTextBox.getBuf(),     "%lf", &material.yield)     == 1 &&
-                  sscanf(thicknessTextBox.getBuf(), "%lf", &material.thickness) == 1
+                ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
+                      sscanf(poissonTextBox.getBuf(),   "%lf", &material.poisson)   == 1 &&
+                      sscanf(yieldTextBox.getBuf(),     "%lf", &material.yield)     == 1 &&
+                      sscanf(thicknessTextBox.getBuf(), "%lf", &material.thickness) == 1
 
-            if ok {
-                material.young *= 1e9       // GPa -> Pa
-                material.yield *= 1e9       // GPa -> Pa
-                material.thickness *= 1e-3  // mm  -> m
-                ed.curMaterial = material 
-            } else {
-                ed.curMaterial = null
-            }
+                if ok {
+                    material.young *= 1e9       // GPa -> Pa
+                    material.yield *= 1e9       // GPa -> Pa
+                    material.thickness *= 1e-3  // mm  -> m
+                    ed.curMaterial = material 
+                } else {
+                    ed.curMaterial = null
+                }
+
+            case editor.CMD_CALCULATE:
+                exaggeration := 0.0
+
+                ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1
+
+                if ok {
+                    ed.displacementExaggeration = exaggeration
+                }
         }
 
         // Process mouse input
