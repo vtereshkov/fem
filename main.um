@@ -74,12 +74,12 @@ fn init*() {
     forceTextBox[0].setBuf("1000")
     forceTextBox[1].setBuf("1000")
 
-    youngTextBox.setBuf(sprintf("%g", ed.curMaterial.young / 1e9))              // Pa -> GPa
+    youngTextBox.setBuf(sprintf("%g", ed.curMaterial.young / 1e9))                  // Pa -> GPa
     poissonTextBox.setBuf(sprintf("%g", ed.curMaterial.poisson))
-    yieldTextBox.setBuf(sprintf("%g", ed.curMaterial.yield / 1e9))              // Pa -> GPa
-    thicknessTextBox.setBuf(sprintf("%g", ed.curMaterial.thickness / 1e3))      // m  -> mm
+    yieldTextBox.setBuf(sprintf("%g", ed.curMaterial.yield / 1e9))                  // Pa -> GPa
+    thicknessTextBox.setBuf(sprintf("%g", ed.curMaterial.thickness / 1e3))          // m  -> mm
 
-    exaggerationTextBox.setBuf("1")
+    exaggerationTextBox.setBuf(sprintf("%g", ed.displacementExaggeration))
     
     window.onFrame.register({
         window.setViewport(window.getDims())
