@@ -69,18 +69,18 @@ fn init*() {
     style.ft = ft
     toolbarGui = ui.mk(rect.mk(0, 0, 100, 10000), style)
 
+    ed.init()    
+
     forceTextBox[0].setBuf("1000")
     forceTextBox[1].setBuf("1000")
 
-    youngTextBox.setBuf("200")
-    poissonTextBox.setBuf("0.3")
-    yieldTextBox.setBuf("1")
-    thicknessTextBox.setBuf("1")
+    youngTextBox.setBuf(sprintf("%g", ed.curMaterial.young / 1e9))              // Pa -> GPa
+    poissonTextBox.setBuf(sprintf("%g", ed.curMaterial.poisson))
+    yieldTextBox.setBuf(sprintf("%g", ed.curMaterial.yield / 1e9))              // Pa -> GPa
+    thicknessTextBox.setBuf(sprintf("%g", ed.curMaterial.thickness / 1e3))      // m  -> mm
 
     exaggerationTextBox.setBuf("1")
     
-    ed.init()
-
     window.onFrame.register({
         window.setViewport(window.getDims())
 
