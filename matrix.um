@@ -7,7 +7,7 @@ type (
 
 fn assert(cond: bool, msg: str = "") {
     if !cond {
-        error("Assertion failed " + msg)
+        exit(-1, "Assertion failed " + msg)
     }
 }
 

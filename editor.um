@@ -168,12 +168,12 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     // Detect polygon containing the point, decrement other point indices
     polyToDelete := -1
     for polyIndex, poly in ed.polys {
-        for vertIndex, vert in poly.vert {
-            if vert == ed.selectedPt {
+        for _, ptIndex^ in poly.vert {
+            if ptIndex^ == ed.selectedPt {
                 polyToDelete = polyIndex
                 break
-            } else if vert > ed.selectedPt {
-                poly.vert[vertIndex]--
+            } else if ptIndex^ > ed.selectedPt {
+                ptIndex^--
             }
         }
     }
@@ -184,22 +184,28 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     }
 
     // Delete force associated with the point, decrement other point indices
-    ed.forces[ed.selectedPt] = th.Vf2{0, 0}
+    forces := ForceSet{}
     for ptIndex, force in ed.forces {
-        if force.mag() != 0 && ptIndex > ed.selectedPt {
-            ed.forces[ptIndex] = th.Vf2{0, 0}
-            ed.forces[ptIndex - 1] = force
-        }
-    }    
-
-    // Delete constraint associated with the point, decrement other point indices
-    ed.constraints[ed.selectedPt] = false
-    for ptIndex, exists in ed.constraints {
-        if exists && ptIndex > ed.selectedPt {
-            ed.constraints[ptIndex] = false
-            ed.constraints[ptIndex - 1] = true
+        if force.mag() == 0 {continue}        
+        if ptIndex < ed.selectedPt {
+            forces[ptIndex] = force
+        } else if ptIndex > ed.selectedPt {
+            forces[ptIndex - 1] = force
         }
     }
+    ed.forces = forces
+
+    // Delete constraint associated with the point, decrement other point indices
+    constraints := PointSet{}
+    for ptIndex, exists in ed.constraints {
+        if !exists {continue}
+        if ptIndex < ed.selectedPt {
+            constraints[ptIndex] = true 
+        } else if ptIndex > ed.selectedPt {
+            constraints[ptIndex - 1] = true
+        }
+    }
+    ed.constraints = constraints
 
     // Delete point
     ed.pts = delete(ed.pts, ed.selectedPt)

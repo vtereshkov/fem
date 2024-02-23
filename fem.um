@@ -117,11 +117,11 @@ fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstrain
     displacements := make([]th.Vf2, numPts)
 
     dof := 0
-    for pt in displacements {
+    for pt, displacement^ in displacements {
         if dofConstraints[2 * pt] {continue}
 
-        displacements[pt].x = unconstrainedDofDisplacements[dof][0]
-        displacements[pt].y = unconstrainedDofDisplacements[dof + 1][0] 
+        displacement.x = unconstrainedDofDisplacements[dof][0]
+        displacement.y = unconstrainedDofDisplacements[dof + 1][0] 
 
         dof += 2
     }
