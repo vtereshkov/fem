@@ -1,3 +1,27 @@
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
 import (
     "th.um"
 )
@@ -348,6 +372,27 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bo
     return true
 }
 
+fn isTriangulationValid(pts: []th.Vf2, tris: TriangleSet): bool {
+    // Each point must belong to a triangle
+    ptFound := make([]bool, len(pts))
+
+    for tri, exists in tris {
+        if !exists {continue}
+
+        for _, pt in tri {
+            ptFound[pt] = true
+        }
+    }
+
+    for pt, found in ptFound {
+        if !found {
+            return false
+        }
+    }
+
+    return true
+}
+
 fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     if !isBoundaryValid(pts, boundary) {
         return TriangleSet{}
@@ -364,7 +409,7 @@ fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     }
 
     neighbors := getNeighbors(triangles)
-    if !trim(&triangles, neighbors, boundary) {
+    if !trim(&triangles, neighbors, boundary) || !isTriangulationValid(pts, triangles) {
         return TriangleSet{}
     }
 
@@ -602,6 +647,10 @@ fn (ed: ^Editor) triangulate(): bool {
             numMainBoundaries++
         }
 
+        if poly.isHole != ed.isClockwise(poly) {
+            poly.reverse()
+        }        
+
         for i, pt1 := 0, poly.vert[len(poly.vert) - 1]; i < len(poly.vert); i++ {
             pt2 := poly.vert[i]
             boundaries[{pt1, pt2}] = true
@@ -650,7 +699,7 @@ fn (ed: ^Editor) init*() {
     ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
     ed.displacementExaggeration = 1
     ed.gridSize = 0.005
-    ed.cam = th.mkTransform({200, 200}, {DEFAULT_SCALE, -DEFAULT_SCALE})
+    ed.cam = th.mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }
 
@@ -658,9 +707,6 @@ fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
             if len(ed.curPoly.vert) > 2 {
-                if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
-                    ed.curPoly.reverse()
-                }
                 ed.polys = append(ed.polys, ed.curPoly)
             }
 
@@ -874,11 +920,30 @@ fn (ed: ^Editor) drawConstraints() {
     }
 }
 
-fn (ed: ^Editor) drawCoordSystem() {
-    screenPt := th.Vf2{0, 0}.transformed(ed.cam)
+fn (ed: ^Editor) drawCoordSystem(ft: font.Font) {
+    screenPt0 := th.Vf2{0, 0}.transformed(ed.cam)
 
-    canvas.drawLine(th.cyan, screenPt, screenPt.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0}), 2)
-    canvas.drawLine(th.cyan, screenPt, screenPt.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH}), 2)
+    {
+        screenPt := screenPt0.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0})
+        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+
+        text := "X"
+        textSize := ft.measure(text)
+        textPos := screenPt.add({10.0, -textSize.y / 2})
+        
+        ft.draw(text, textPos, th.cyan, 1)
+    }
+
+    {        
+        screenPt := screenPt0.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH})
+        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+
+        text := "Y"
+        textSize := ft.measure(text)
+        textPos := screenPt.add({-textSize.x / 2, -10.0 - textSize.y})
+
+        ft.draw(text, textPos, th.cyan, 1)
+    }        
 }
 
 fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
@@ -934,7 +999,7 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
         ed.drawForces(ft)
         ed.drawConstraints()
         ed.drawPoints()
-        ed.drawCoordSystem()
+        ed.drawCoordSystem(ft)
     }
 
     ed.drawScaleBar(windowSize, ft)
