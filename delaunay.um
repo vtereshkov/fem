@@ -348,6 +348,27 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bo
     return true
 }
 
+fn isTriangulationValid(pts: []th.Vf2, tris: TriangleSet): bool {
+    // Each point must belong to a triangle
+    ptFound := make([]bool, len(pts))
+
+    for tri, exists in tris {
+        if !exists {continue}
+
+        for _, pt in tri {
+            ptFound[pt] = true
+        }
+    }
+
+    for pt, found in ptFound {
+        if !found {
+            return false
+        }
+    }
+
+    return true
+}
+
 fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     if !isBoundaryValid(pts, boundary) {
         return TriangleSet{}
@@ -364,7 +385,7 @@ fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
     }
 
     neighbors := getNeighbors(triangles)
-    if !trim(&triangles, neighbors, boundary) {
+    if !trim(&triangles, neighbors, boundary) || !isTriangulationValid(pts, triangles) {
         return TriangleSet{}
     }
 

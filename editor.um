@@ -277,7 +277,7 @@ fn (ed: ^Editor) init*() {
     ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
     ed.displacementExaggeration = 1
     ed.gridSize = 0.005
-    ed.cam = th.mkTransform({200, 200}, {DEFAULT_SCALE, -DEFAULT_SCALE})
+    ed.cam = th.mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = CMD_EDIT_POINT
 }
 
@@ -501,11 +501,30 @@ fn (ed: ^Editor) drawConstraints() {
     }
 }
 
-fn (ed: ^Editor) drawCoordSystem() {
-    screenPt := th.Vf2{0, 0}.transformed(ed.cam)
+fn (ed: ^Editor) drawCoordSystem(ft: font.Font) {
+    screenPt0 := th.Vf2{0, 0}.transformed(ed.cam)
 
-    canvas.drawLine(th.cyan, screenPt, screenPt.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0}), 2)
-    canvas.drawLine(th.cyan, screenPt, screenPt.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH}), 2)
+    {
+        screenPt := screenPt0.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0})
+        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+
+        text := "X"
+        textSize := ft.measure(text)
+        textPos := screenPt.add({10.0, -textSize.y / 2})
+        
+        ft.draw(text, textPos, th.cyan, 1)
+    }
+
+    {        
+        screenPt := screenPt0.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH})
+        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+
+        text := "Y"
+        textSize := ft.measure(text)
+        textPos := screenPt.add({-textSize.x / 2, -10.0 - textSize.y})
+
+        ft.draw(text, textPos, th.cyan, 1)
+    }        
 }
 
 fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
@@ -561,7 +580,7 @@ fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
         ed.drawForces(ft)
         ed.drawConstraints()
         ed.drawPoints()
-        ed.drawCoordSystem()
+        ed.drawCoordSystem(ft)
     }
 
     ed.drawScaleBar(windowSize, ft)
