@@ -229,6 +229,10 @@ fn (ed: ^Editor) triangulate(): bool {
             numMainBoundaries++
         }
 
+        if poly.isHole != ed.isClockwise(poly) {
+            poly.reverse()
+        }        
+
         for i, pt1 := 0, poly.vert[len(poly.vert) - 1]; i < len(poly.vert); i++ {
             pt2 := poly.vert[i]
             boundaries[{pt1, pt2}] = true
@@ -285,9 +289,6 @@ fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
         case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
             if len(ed.curPoly.vert) > 2 {
-                if ed.curPoly.isHole != ed.isClockwise(ed.curPoly) {
-                    ed.curPoly.reverse()
-                }
                 ed.polys = append(ed.polys, ed.curPoly)
             }
 
