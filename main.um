@@ -91,7 +91,9 @@ fn init*() {
         layout := ui.LayoutFn {
             gui.box({dimension: 25, growType: ui.BoxGrowDimension, dir: ui.BoxDirectionDown})
             {                   
-                for cmd, cmdName in cmdNames {
+                for cmdIndex, cmdName in cmdNames {
+                    cmd := editor.Cmd(cmdIndex)
+
                     // Command button
                     latchButton(gui, cmdName, ed.cmd == cmd, fn () |cmd| {
                         if ed.cmd != cmd {
@@ -102,12 +104,12 @@ fn init*() {
                     // Command-specific text boxes and buttons
                     if ed.cmd == cmd {
                         switch ed.cmd {
-                            case editor.CMD_ENTER_FORCES:
+                            case editor.Cmd.ENTER_FORCES:
                                 gui.label("Force X, Y (N)", {centerX: true, centerY: true})
                                 gui.textBox(&forceTextBox[0])
                                 gui.textBox(&forceTextBox[1])
 
-                            case editor.CMD_ENTER_MATERIAL:
+                            case editor.Cmd.ENTER_MATERIAL:
                                 gui.label("Young (GPa)", {centerX: true, centerY: true})
                                 gui.textBox(&youngTextBox)
                                 gui.label("Poisson", {centerX: true, centerY: true})
@@ -117,7 +119,7 @@ fn init*() {
                                 gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
                                 gui.textBox(&thicknessTextBox)
 
-                            case editor.CMD_CALCULATE:
+                            case editor.Cmd.CALCULATE:
                                 latchButton(gui, "Deformed", ed.showDeformed, fn () {
                                     ed.showDeformed = !ed.showDeformed
                                 })
@@ -140,7 +142,7 @@ fn init*() {
                 }
 
                 // Error message
-                gui.label(errStrings[ed.errCode], {centerX: true, centerY: true})
+                gui.label(errStrings[int(ed.errCode)], {centerX: true, centerY: true})
             }
             gui.popContainer()
         }
@@ -158,7 +160,7 @@ fn init*() {
         }
 
         switch ed.cmd {
-            case editor.CMD_ENTER_FORCES:
+            case editor.Cmd.ENTER_FORCES:
                 force := new(th.Vf2)
 
                 ok := sscanf(forceTextBox[0].getBuf(), "%f", &force.x) == 1 &&
@@ -166,7 +168,7 @@ fn init*() {
 
                 ed.curForce = ok ? force : null
 
-            case editor.CMD_ENTER_MATERIAL:
+            case editor.Cmd.ENTER_MATERIAL:
                 material := new(fem.Material)
 
                 ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
@@ -183,7 +185,7 @@ fn init*() {
                     ed.curMaterial = null
                 }
 
-            case editor.CMD_CALCULATE:
+            case editor.Cmd.CALCULATE:
                 if ed.showDeformed {
                     exaggeration := 0.0
                     ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1

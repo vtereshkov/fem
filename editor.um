@@ -21,8 +21,29 @@ type (
 
     ForceSet = map[int]th.Vf2
 
+    Cmd* = enum {
+        ENTER_BOUNDARY
+        ENTER_HOLE
+        ENTER_POINTS
+        ENTER_FORCES
+        ENTER_CONSTRAINTS
+        ENTER_MATERIAL
+        EDIT_POINT
+        DELETE_POINT
+        CALCULATE
+        CLEAR  
+    }
+
+    Err* = enum {
+        NONE
+        BAD_BOUNDARY
+        BAD_FORCE
+        BAD_CONSTRAINTS
+        BAD_MATERIAL
+    }    
+
     Editor* = struct {
-        cmd: int
+        cmd: Cmd
 
         pts: []th.Vf2
         polys: []Poly
@@ -46,35 +67,14 @@ type (
         gridSize: real        
 
         cam: th.Transform
-        errCode: int
+        errCode: Err
     }
-)
-
-const (
-    CMD_ENTER_BOUNDARY* = 0
-    CMD_ENTER_HOLE*
-    CMD_ENTER_POINTS*
-    CMD_ENTER_FORCES*
-    CMD_ENTER_CONSTRAINTS*
-    CMD_ENTER_MATERIAL*
-    CMD_EDIT_POINT*
-    CMD_DELETE_POINT*
-    CMD_CALCULATE*
-    CMD_CLEAR*  
-)
-
-const (
-    ERR_NONE* = 0
-    ERR_BAD_BOUNDARY*
-    ERR_BAD_FORCE*
-    ERR_BAD_CONSTRAINTS*
-    ERR_BAD_MATERIAL*
 )
 
 const (
     POINT_SIZE    = 10      // pix
     LINE_WIDTH    = 3       // pix
-    VECTOR_LENGTH  = 40      // pix
+    VECTOR_LENGTH = 40      // pix
     DEFAULT_SCALE = 4000    // pix/m
 )
 
@@ -214,7 +214,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 
 fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
     pt := ed.pts[ptIndex]
-    if ed.cmd == CMD_CALCULATE && ed.showDeformed {
+    if ed.cmd == Cmd.CALCULATE && ed.showDeformed {
         pt = pt.add(ed.displacements[ptIndex].mulf(ed.displacementExaggeration))
     }
     return pt  
@@ -260,17 +260,17 @@ fn (ed: ^Editor) triangulate(): bool {
 
 fn (ed: ^Editor) calculate() {
     if ed.curMaterial == null || !ed.curMaterial.isValid() {
-        ed.errCode = ERR_BAD_MATERIAL
+        ed.errCode = Err.BAD_MATERIAL
         return
     }
 
     if !ed.constraints.isValid() {
-        ed.errCode = ERR_BAD_CONSTRAINTS
+        ed.errCode = Err.BAD_CONSTRAINTS
         return
     }
 
     if !ed.triangulate() {
-        ed.errCode = ERR_BAD_BOUNDARY
+        ed.errCode = Err.BAD_BOUNDARY
         return
     }
 
@@ -282,17 +282,17 @@ fn (ed: ^Editor) init*() {
     ed.displacementExaggeration = 1
     ed.gridSize = 0.005
     ed.cam = th.mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
-    ed.cmd = CMD_EDIT_POINT
+    ed.cmd = Cmd.EDIT_POINT
 }
 
 fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
-        case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
             if len(ed.curPoly.vert) > 2 {
                 ed.polys = append(ed.polys, ed.curPoly)
             }
 
-        case CMD_DELETE_POINT:
+        case Cmd.DELETE_POINT:
             if ed.selectedPt >= 0 {
                 if ed.forces[ed.selectedPt].mag() != 0.0 {
                     ed.forces[ed.selectedPt] = th.Vf2{0, 0}
@@ -305,22 +305,22 @@ fn (ed: ^Editor) endCmd*() {
     }
 
     ed.selectedPt = -1
-    ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
-    ed.errCode = ERR_NONE
+    ed.curPoly = {isHole: ed.cmd == Cmd.ENTER_HOLE}
+    ed.errCode = Err.NONE
 }
 
-fn (ed: ^Editor) startCmd*(cmd: int) {
+fn (ed: ^Editor) startCmd*(cmd: Cmd) {
     ed.endCmd()
     ed.cmd = cmd
     
     switch ed.cmd {
-        case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
-            ed.curPoly = {isHole: ed.cmd == CMD_ENTER_HOLE}
+        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
+            ed.curPoly = {isHole: ed.cmd == Cmd.ENTER_HOLE}
 
-        case CMD_CALCULATE:
+        case Cmd.CALCULATE:
             ed.calculate()
 
-        case CMD_CLEAR:
+        case Cmd.CLEAR:
             ed^ = Editor{}
             ed.init() 
     } 
@@ -330,7 +330,7 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
     worldPos := ed.getWorldPos(pos)
 
     switch ed.cmd {
-        case CMD_ENTER_BOUNDARY, CMD_ENTER_HOLE:
+        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                 if !ed.isInPoly(existingPt) {
                     ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
@@ -340,10 +340,10 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                 ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pts) - 1)
             }
 
-        case CMD_ENTER_POINTS:
+        case Cmd.ENTER_POINTS:
             ed.pts = append(ed.pts, worldPos)
 
-        case CMD_ENTER_CONSTRAINTS:
+        case Cmd.ENTER_CONSTRAINTS:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                 ed.constraints[existingPt] = true
             } else {            
@@ -351,7 +351,7 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                 ed.constraints[len(ed.pts) - 1] = true
             }
 
-        case CMD_ENTER_FORCES:
+        case Cmd.ENTER_FORCES:
             if ed.curForce != null {
                 if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                     ed.forces[existingPt] = ed.curForce^
@@ -360,10 +360,10 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                     ed.forces[len(ed.pts) - 1] = ed.curForce^
                 }                
             } else {
-                ed.errCode = ERR_BAD_FORCE
+                ed.errCode = Err.BAD_FORCE
             }
 
-        case CMD_EDIT_POINT, CMD_DELETE_POINT: 
+        case Cmd.EDIT_POINT, Cmd.DELETE_POINT: 
             ed.selectedPt = ed.findPoint(worldPos)                           
     }
 }
@@ -373,7 +373,7 @@ fn (ed: ^Editor) processRightClick*() {
 }
 
 fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
-    if ed.cmd == CMD_EDIT_POINT && ed.selectedPt >= 0 {
+    if ed.cmd == Cmd.EDIT_POINT && ed.selectedPt >= 0 {
         worldPos := ed.getWorldPos(pos)
         ed.pts[ed.selectedPt] = worldPos     
     }
@@ -570,8 +570,8 @@ fn (ed: ^Editor) drawCursor(pos: th.Vf2) {
 fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
     ed.drawBackground(windowSize)   
 
-    if ed.cmd == CMD_CALCULATE {
-        if ed.errCode == ERR_NONE {
+    if ed.cmd == Cmd.CALCULATE {
+        if ed.errCode == Err.NONE {
             ed.drawTriangles()
             ed.drawForces(ft)
             ed.drawConstraints()            
