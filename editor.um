@@ -214,7 +214,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
 
 fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
     pt := ed.pts[ptIndex]
-    if ed.cmd == Cmd.CALCULATE && ed.showDeformed {
+    if ed.cmd == .CALCULATE && ed.showDeformed {
         pt = pt.add(ed.displacements[ptIndex].mulf(ed.displacementExaggeration))
     }
     return pt  
@@ -260,17 +260,17 @@ fn (ed: ^Editor) triangulate(): bool {
 
 fn (ed: ^Editor) calculate() {
     if ed.curMaterial == null || !ed.curMaterial.isValid() {
-        ed.errCode = Err.BAD_MATERIAL
+        ed.errCode = .BAD_MATERIAL
         return
     }
 
     if !ed.constraints.isValid() {
-        ed.errCode = Err.BAD_CONSTRAINTS
+        ed.errCode = .BAD_CONSTRAINTS
         return
     }
 
     if !ed.triangulate() {
-        ed.errCode = Err.BAD_BOUNDARY
+        ed.errCode = .BAD_BOUNDARY
         return
     }
 
@@ -282,17 +282,17 @@ fn (ed: ^Editor) init*() {
     ed.displacementExaggeration = 1
     ed.gridSize = 0.005
     ed.cam = th.mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
-    ed.cmd = Cmd.EDIT_POINT
+    ed.cmd = .EDIT_POINT
 }
 
 fn (ed: ^Editor) endCmd*() {
     switch ed.cmd {
-        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
+        case .ENTER_BOUNDARY, .ENTER_HOLE:
             if len(ed.curPoly.vert) > 2 {
                 ed.polys = append(ed.polys, ed.curPoly)
             }
 
-        case Cmd.DELETE_POINT:
+        case .DELETE_POINT:
             if ed.selectedPt >= 0 {
                 if ed.forces[ed.selectedPt].mag() != 0.0 {
                     ed.forces[ed.selectedPt] = th.Vf2{0, 0}
@@ -305,8 +305,8 @@ fn (ed: ^Editor) endCmd*() {
     }
 
     ed.selectedPt = -1
-    ed.curPoly = {isHole: ed.cmd == Cmd.ENTER_HOLE}
-    ed.errCode = Err.NONE
+    ed.curPoly = {isHole: ed.cmd == .ENTER_HOLE}
+    ed.errCode = .NONE
 }
 
 fn (ed: ^Editor) startCmd*(cmd: Cmd) {
@@ -314,13 +314,13 @@ fn (ed: ^Editor) startCmd*(cmd: Cmd) {
     ed.cmd = cmd
     
     switch ed.cmd {
-        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
-            ed.curPoly = {isHole: ed.cmd == Cmd.ENTER_HOLE}
+        case .ENTER_BOUNDARY, .ENTER_HOLE:
+            ed.curPoly = {isHole: ed.cmd == .ENTER_HOLE}
 
-        case Cmd.CALCULATE:
+        case .CALCULATE:
             ed.calculate()
 
-        case Cmd.CLEAR:
+        case .CLEAR:
             ed^ = Editor{}
             ed.init() 
     } 
@@ -330,7 +330,7 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
     worldPos := ed.getWorldPos(pos)
 
     switch ed.cmd {
-        case Cmd.ENTER_BOUNDARY, Cmd.ENTER_HOLE:
+        case .ENTER_BOUNDARY, .ENTER_HOLE:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                 if !ed.isInPoly(existingPt) {
                     ed.curPoly.vert = append(ed.curPoly.vert, existingPt)
@@ -340,10 +340,10 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                 ed.curPoly.vert = append(ed.curPoly.vert, len(ed.pts) - 1)
             }
 
-        case Cmd.ENTER_POINTS:
+        case .ENTER_POINTS:
             ed.pts = append(ed.pts, worldPos)
 
-        case Cmd.ENTER_CONSTRAINTS:
+        case .ENTER_CONSTRAINTS:
             if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                 ed.constraints[existingPt] = true
             } else {            
@@ -351,7 +351,7 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                 ed.constraints[len(ed.pts) - 1] = true
             }
 
-        case Cmd.ENTER_FORCES:
+        case .ENTER_FORCES:
             if ed.curForce != null {
                 if existingPt := ed.findPoint(worldPos); existingPt >= 0 {
                     ed.forces[existingPt] = ed.curForce^
@@ -360,10 +360,10 @@ fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
                     ed.forces[len(ed.pts) - 1] = ed.curForce^
                 }                
             } else {
-                ed.errCode = Err.BAD_FORCE
+                ed.errCode = .BAD_FORCE
             }
 
-        case Cmd.EDIT_POINT, Cmd.DELETE_POINT: 
+        case .EDIT_POINT, .DELETE_POINT: 
             ed.selectedPt = ed.findPoint(worldPos)                           
     }
 }
@@ -373,7 +373,7 @@ fn (ed: ^Editor) processRightClick*() {
 }
 
 fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
-    if ed.cmd == Cmd.EDIT_POINT && ed.selectedPt >= 0 {
+    if ed.cmd == .EDIT_POINT && ed.selectedPt >= 0 {
         worldPos := ed.getWorldPos(pos)
         ed.pts[ed.selectedPt] = worldPos     
     }
@@ -570,8 +570,8 @@ fn (ed: ^Editor) drawCursor(pos: th.Vf2) {
 fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
     ed.drawBackground(windowSize)   
 
-    if ed.cmd == Cmd.CALCULATE {
-        if ed.errCode == Err.NONE {
+    if ed.cmd == .CALCULATE {
+        if ed.errCode == .NONE {
             ed.drawTriangles()
             ed.drawForces(ft)
             ed.drawConstraints()            

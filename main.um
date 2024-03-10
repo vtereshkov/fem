@@ -104,12 +104,12 @@ fn init*() {
                     // Command-specific text boxes and buttons
                     if ed.cmd == cmd {
                         switch ed.cmd {
-                            case editor.Cmd.ENTER_FORCES:
+                            case .ENTER_FORCES:
                                 gui.label("Force X, Y (N)", {centerX: true, centerY: true})
                                 gui.textBox(&forceTextBox[0])
                                 gui.textBox(&forceTextBox[1])
 
-                            case editor.Cmd.ENTER_MATERIAL:
+                            case .ENTER_MATERIAL:
                                 gui.label("Young (GPa)", {centerX: true, centerY: true})
                                 gui.textBox(&youngTextBox)
                                 gui.label("Poisson", {centerX: true, centerY: true})
@@ -119,7 +119,7 @@ fn init*() {
                                 gui.label("Thickness (mm)", {centerX: true, centerY: true})                    
                                 gui.textBox(&thicknessTextBox)
 
-                            case editor.Cmd.CALCULATE:
+                            case .CALCULATE:
                                 latchButton(gui, "Deformed", ed.showDeformed, fn () {
                                     ed.showDeformed = !ed.showDeformed
                                 })
@@ -160,7 +160,7 @@ fn init*() {
         }
 
         switch ed.cmd {
-            case editor.Cmd.ENTER_FORCES:
+            case .ENTER_FORCES:
                 force := new(th.Vf2)
 
                 ok := sscanf(forceTextBox[0].getBuf(), "%f", &force.x) == 1 &&
@@ -168,7 +168,7 @@ fn init*() {
 
                 ed.curForce = ok ? force : null
 
-            case editor.Cmd.ENTER_MATERIAL:
+            case .ENTER_MATERIAL:
                 material := new(fem.Material)
 
                 ok := sscanf(youngTextBox.getBuf(),     "%lf", &material.young)     == 1 &&
@@ -185,7 +185,7 @@ fn init*() {
                     ed.curMaterial = null
                 }
 
-            case editor.Cmd.CALCULATE:
+            case .CALCULATE:
                 if ed.showDeformed {
                     exaggeration := 0.0
                     ok := sscanf(exaggerationTextBox.getBuf(), "%lf", &exaggeration) == 1
