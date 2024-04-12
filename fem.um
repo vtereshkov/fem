@@ -13,7 +13,7 @@ type (
 
     Element* = struct {
         tri: [3]int
-        geometry, elasticity, stiffness: matrix.Matrix
+        geometry, elasticity, stiffness: matrix::Matrix
     }
 )
 
@@ -21,7 +21,7 @@ fn (mat: ^Material) isValid*(): bool {
     return mat.young > 0 && mat.poisson > 0 && mat.poisson < 0.5 && mat.thickness > 0
 }
 
-fn createElement*(pts: []th.Vf2, tri: [3]int, material: Material): Element {
+fn createElement*(pts: []th::Vf2, tri: [3]int, material: Material): Element {
     el := Element{tri: tri}
 
     a := pts[tri[1]].sub(pts[tri[0]])
@@ -31,13 +31,13 @@ fn createElement*(pts: []th.Vf2, tri: [3]int, material: Material): Element {
     det := b.x * c.y - c.x * b.y
     area := 0.5 * fabs(det)
 
-    el.geometry = matrix.Matrix{
+    el.geometry = matrix::Matrix{
         {-b.y,    0, -c.y,    0, -a.y,    0},
         {   0,  b.x,    0,  c.x,    0,  a.x},
         { b.x, -b.y,  c.x, -c.y,  a.x, -a.y}
     }.mulf(1.0 / det)
 
-    el.elasticity = matrix.Matrix{
+    el.elasticity = matrix::Matrix{
         {               1, material.poisson,                          0},
         {material.poisson,                1,                          0},
         {               0,                0, (1 - material.poisson) / 2}
@@ -51,8 +51,8 @@ fn (el: ^Element) convertDofToGlobal(dof: int): int {
     return 2 * el.tri[dof / 2] + (dof % 2)
 }
 
-fn (el: ^Element) getEquivalentStress(displacements: []th.Vf2): real {
-    dofDisplacements := matrix.Matrix{
+fn (el: ^Element) getEquivalentStress(displacements: []th::Vf2): real {
+    dofDisplacements := matrix::Matrix{
         {displacements[el.tri[0]].x},
         {displacements[el.tri[0]].y},
         {displacements[el.tri[1]].x},
@@ -69,8 +69,8 @@ fn (el: ^Element) getEquivalentStress(displacements: []th.Vf2): real {
     return sqrt(sqr(stresses[0][0]) - stresses[0][0] * stresses[1][0] + sqr(stresses[1][0]) + 3 * sqr(stresses[2][0]))
 }
 
-fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
-    stiffness := matrix.zeros(2 * numPts, 2 * numPts)
+fn getGlobalStiffness(els: []Element, numPts: int): matrix::Matrix {
+    stiffness := matrix::zeros(2 * numPts, 2 * numPts)
 
     for _, el in els {
         for row in el.stiffness {
@@ -85,9 +85,9 @@ fn getGlobalStiffness(els: []Element, numPts: int): matrix.Matrix {
     return stiffness
 }
 
-fn getDofForces(forces: map[int]th.Vf2, numPts: int): matrix.Matrix {
+fn getDofForces(forces: map[int]th::Vf2, numPts: int): matrix::Matrix {
     // Flatten force vectors into a single column vector
-    dofForces := matrix.zeros(2 * numPts, 1)
+    dofForces := matrix::zeros(2 * numPts, 1)
 
     for pt, force in forces {
         if force.mag() == 0 {continue}
@@ -113,8 +113,8 @@ fn getDofConstraints(constraints: map[int]bool): map[int]bool {
     return dofConstraints     
 }
 
-fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstraints: map[int]bool, numPts: int): []th.Vf2 {
-    displacements := make([]th.Vf2, numPts)
+fn getPtDisplacements(unconstrainedDofDisplacements: matrix::Matrix, dofConstraints: map[int]bool, numPts: int): []th::Vf2 {
+    displacements := make([]th::Vf2, numPts)
 
     dof := 0
     for pt, displacement^ in displacements {
@@ -129,7 +129,7 @@ fn getPtDisplacements(unconstrainedDofDisplacements: matrix.Matrix, dofConstrain
     return displacements
 }
 
-fn getEquivalentStresses(els: []Element, displacements: []th.Vf2): []real {
+fn getEquivalentStresses(els: []Element, displacements: []th::Vf2): []real {
     stresses := make([]real, len(els))
     for i, el in els {
         stresses[i] = el.getEquivalentStress(displacements)
@@ -137,7 +137,7 @@ fn getEquivalentStresses(els: []Element, displacements: []th.Vf2): []real {
     return stresses
 }
 
-fn solve*(pts: []th.Vf2, tris: [][3]int, forces: map[int]th.Vf2, constraints: map[int]bool, material: Material): ([]th.Vf2, []real) {
+fn solve*(pts: []th::Vf2, tris: [][3]int, forces: map[int]th::Vf2, constraints: map[int]bool, material: Material): ([]th::Vf2, []real) {
     // The DOFs are point displacements: {displacements[0].x, displacements[0].y, displacements[1].x, displacements[1].y, ...}
 
     // Create finite elements

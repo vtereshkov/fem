@@ -16,7 +16,7 @@ fn det(a: [3][3]real): real {
            a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
 }
 
-fn isInCircumCircle(pt: th.Vf2, tri: [3]th.Vf2): bool {
+fn isInCircumCircle(pt: th::Vf2, tri: [3]th::Vf2): bool {
     da := tri[0].sub(pt)
     db := tri[1].sub(pt)
     dc := tri[2].sub(pt)
@@ -30,7 +30,7 @@ fn isInCircumCircle(pt: th.Vf2, tri: [3]th.Vf2): bool {
     return d > 0.0
 }
 
-fn isClockwise(tri: [3]th.Vf2): bool {
+fn isClockwise(tri: [3]th::Vf2): bool {
     a := tri[1].sub(tri[0])
     b := tri[2].sub(tri[1])
 
@@ -38,7 +38,7 @@ fn isClockwise(tri: [3]th.Vf2): bool {
     return d < 0.0
 }
 
-fn isConvex(quad: [4]th.Vf2): bool {
+fn isConvex(quad: [4]th::Vf2): bool {
     return isClockwise({quad[0], quad[1], quad[2]}) == isClockwise({quad[2], quad[3], quad[0]}) &&
            isClockwise({quad[0], quad[1], quad[3]}) == isClockwise({quad[1], quad[2], quad[3]})
 }
@@ -47,7 +47,7 @@ fn (edge: ^Edge) reverse(): Edge {
     return {edge[1], edge[0]}
 }
 
-fn (edge: ^Edge) intersects(otherEdge: Edge, pts: []th.Vf2): bool {
+fn (edge: ^Edge) intersects(otherEdge: Edge, pts: []th::Vf2): bool {
     if edge[0] == otherEdge[0] || edge[0] == otherEdge[1] || edge[1] == otherEdge[0] || edge[1] == otherEdge[1] {
         return false
     }
@@ -85,7 +85,7 @@ fn (tris: ^TriangleSet) condense(): TriangleSet {
     return res
 }
 
-fn getBadTris(pt: th.Vf2, pts: []th.Vf2, tris: TriangleSet): TriangleSet {
+fn getBadTris(pt: th::Vf2, pts: []th::Vf2, tris: TriangleSet): TriangleSet {
     badTris := TriangleSet{}
     for tri, exists in tris {
         if exists && isInCircumCircle(pt, {pts[tri[0]], pts[tri[1]], pts[tri[2]]}) {
@@ -143,13 +143,13 @@ fn getNeighbors(tris: TriangleSet): TriangleNeighbors {
     return neighbors
 }
 
-fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
+fn triangulateConvexHull(pts: []th::Vf2): TriangleSet {
     // Bowyer-Watson method for Delaunay triangulation
 
     // Add a fake super-triangle
     const BIG_VAL = 10000.0
 
-    ptsWithSuper := append(copy(pts), []th.Vf2{{BIG_VAL, BIG_VAL}, {-BIG_VAL, BIG_VAL}, {0.0, -BIG_VAL}})
+    ptsWithSuper := append(copy(pts), []th::Vf2{{BIG_VAL, BIG_VAL}, {-BIG_VAL, BIG_VAL}, {0.0, -BIG_VAL}})
     superTri := Triangle{len(pts), len(pts) + 1, len(pts) + 2}
     
     tris := TriangleSet{superTri: true}
@@ -193,7 +193,7 @@ fn triangulateConvexHull(pts: []th.Vf2): TriangleSet {
     return tris
 }
 
-fn isBoundaryValid(pts: []th.Vf2, boundary: EdgeSet): bool {
+fn isBoundaryValid(pts: []th::Vf2, boundary: EdgeSet): bool {
     var vertexCount: map[int]int
 
     for edge, exists in boundary {
@@ -233,7 +233,7 @@ fn getMissingEdges(tris: TriangleSet, edges: EdgeSet): EdgeSet {
     return missingEdges
 }
 
-fn getIntersectingEdges(pts: []th.Vf2, tris: TriangleSet, newEdge: Edge): EdgeSet {
+fn getIntersectingEdges(pts: []th::Vf2, tris: TriangleSet, newEdge: Edge): EdgeSet {
     intersectingEdges := EdgeSet{}
 
     for tri, exists in tris {
@@ -271,7 +271,7 @@ fn getTrianglePair(tris: TriangleSet, commonEdge: Edge): ([2]Triangle, Edge) {
     return pair, freeVertices   
 }
 
-fn addEdge(pts: []th.Vf2, tris: ^TriangleSet, newEdge: Edge) {
+fn addEdge(pts: []th::Vf2, tris: ^TriangleSet, newEdge: Edge) {
     // Detect all edges intersecting with the new edge and replace them with non-intersecting ones
     intersectingEdges := getIntersectingEdges(pts, tris^, newEdge)
 
@@ -348,7 +348,7 @@ fn trim(tris: ^TriangleSet, neighbors: TriangleNeighbors, boundary: EdgeSet): bo
     return true
 }
 
-fn isTriangulationValid(pts: []th.Vf2, tris: TriangleSet): bool {
+fn isTriangulationValid(pts: []th::Vf2, tris: TriangleSet): bool {
     // Each point must belong to a triangle
     ptFound := make([]bool, len(pts))
 
@@ -369,7 +369,7 @@ fn isTriangulationValid(pts: []th.Vf2, tris: TriangleSet): bool {
     return true
 }
 
-fn triangulate*(pts: []th.Vf2, boundary: EdgeSet): TriangleSet {
+fn triangulate*(pts: []th::Vf2, boundary: EdgeSet): TriangleSet {
     if !isBoundaryValid(pts, boundary) {
         return TriangleSet{}
     }

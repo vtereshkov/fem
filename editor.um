@@ -19,7 +19,7 @@ type (
 
     PointSet = map[int]bool
 
-    ForceSet = map[int]th.Vf2
+    ForceSet = map[int]th::Vf2
 
     Cmd* = enum {
         ENTER_BOUNDARY
@@ -45,20 +45,20 @@ type (
     Editor* = struct {
         cmd: Cmd
 
-        pts: []th.Vf2
+        pts: []th::Vf2
         polys: []Poly
         tris: []Triangle
 
         constraints: PointSet
         forces: ForceSet
 
-        displacements: []th.Vf2
+        displacements: []th::Vf2
         stresses: []real
 
         selectedPt: int
         curPoly: Poly
-        curForce: ^th.Vf2
-        curMaterial: ^fem.Material
+        curForce: ^th::Vf2
+        curMaterial: ^fem::Material
 
         showDeformed: bool
         displacementExaggeration: real
@@ -66,7 +66,7 @@ type (
         useGrid: bool
         gridSize: real        
 
-        cam: th.Transform
+        cam: th::Transform
         errCode: Err
     }
 )
@@ -90,10 +90,10 @@ fn clamp(x, max: real): real {
 }
 
 fn noise(): real {
-    return 1e-6 * (std.frand() - 0.5)
+    return 1e-6 * (std::frand() - 0.5)
 }
 
-fn inverse(t: th.Transform): th.Transform {
+fn inverse(t: th::Transform): th::Transform {
     return {p: {-t.p.x / t.s.x, -t.p.y / t.s.y}, s: {1.0 / t.s.x, 1.0 / t.s.y}}
 }
 
@@ -119,7 +119,7 @@ fn (constraints: ^PointSet) isValid(): bool {
     return len(constraints^) >= 2
 }
 
-fn (ed: ^Editor) getWorldPos(pos: th.Vf2): th.Vf2 {
+fn (ed: ^Editor) getWorldPos(pos: th::Vf2): th::Vf2 {
     worldPos := pos.transformed(inverse(ed.cam))
     if ed.useGrid {
         worldPos = worldPos.divf(ed.gridSize).round().mulf(ed.gridSize)
@@ -155,7 +155,7 @@ fn (ed: ^Editor) isInPoly(ptIndex: int): bool {
     return false
 }
 
-fn (ed: ^Editor) findPoint(pos: th.Vf2): int {
+fn (ed: ^Editor) findPoint(pos: th::Vf2): int {
     for i, pt in ed.pts {
         if fabs((pos.x - pt.x) * ed.cam.s.x) < POINT_SIZE && fabs((pos.y - pt.y) * ed.cam.s.y) < POINT_SIZE {
             return i
@@ -212,7 +212,7 @@ fn (ed: ^Editor) deleteSelectedPoint() {
     ed.selectedPt = -1
 }
 
-fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
+fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th::Vf2 {
     pt := ed.pts[ptIndex]
     if ed.cmd == .CALCULATE && ed.showDeformed {
         pt = pt.add(ed.displacements[ptIndex].mulf(ed.displacementExaggeration))
@@ -221,7 +221,7 @@ fn (ed: ^Editor) getDisplacedPt(ptIndex: int): th.Vf2 {
 }
 
 fn (ed: ^Editor) triangulate(): bool {
-    boundaries := delaunay.EdgeSet{}
+    boundaries := delaunay::EdgeSet{}
     numMainBoundaries := 0
 
     for _, poly in ed.polys {
@@ -246,7 +246,7 @@ fn (ed: ^Editor) triangulate(): bool {
         return false
     }
 
-    triangles := delaunay.triangulate(ed.pts, boundaries) 
+    triangles := delaunay::triangulate(ed.pts, boundaries) 
     if len(triangles) == 0 {
         return false
     }
@@ -274,14 +274,14 @@ fn (ed: ^Editor) calculate() {
         return
     }
 
-    ed.displacements, ed.stresses = fem.solve(ed.pts, ed.tris, ed.forces, ed.constraints, ed.curMaterial^)
+    ed.displacements, ed.stresses = fem::solve(ed.pts, ed.tris, ed.forces, ed.constraints, ed.curMaterial^)
 }
 
 fn (ed: ^Editor) init*() {
-    ed.curMaterial = &fem.Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
+    ed.curMaterial = &fem::Material{young: 200e9, poisson: 0.3, yield: 1e9, thickness: 0.001}
     ed.displacementExaggeration = 1
     ed.gridSize = 0.005
-    ed.cam = th.mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
+    ed.cam = th::mkTransform({300, 300}, {DEFAULT_SCALE, -DEFAULT_SCALE})
     ed.cmd = .EDIT_POINT
 }
 
@@ -295,7 +295,7 @@ fn (ed: ^Editor) endCmd*() {
         case .DELETE_POINT:
             if ed.selectedPt >= 0 {
                 if ed.forces[ed.selectedPt].mag() != 0.0 {
-                    ed.forces[ed.selectedPt] = th.Vf2{0, 0}
+                    ed.forces[ed.selectedPt] = th::Vf2{0, 0}
                 } else if ed.constraints[ed.selectedPt] {
                     ed.constraints[ed.selectedPt] = false
                 } else {
@@ -326,7 +326,7 @@ fn (ed: ^Editor) startCmd*(cmd: Cmd) {
     } 
 }
 
-fn (ed: ^Editor) processLeftClick*(pos: th.Vf2) {
+fn (ed: ^Editor) processLeftClick*(pos: th::Vf2) {
     worldPos := ed.getWorldPos(pos)
 
     switch ed.cmd {
@@ -372,18 +372,18 @@ fn (ed: ^Editor) processRightClick*() {
     ed.endCmd()
 }
 
-fn (ed: ^Editor) processLeftDrag*(pos: th.Vf2) {
+fn (ed: ^Editor) processLeftDrag*(pos: th::Vf2) {
     if ed.cmd == .EDIT_POINT && ed.selectedPt >= 0 {
         worldPos := ed.getWorldPos(pos)
         ed.pts[ed.selectedPt] = worldPos     
     }
 }
 
-fn (ed: ^Editor) processMidDrag*(delta: th.Vf2) {
+fn (ed: ^Editor) processMidDrag*(delta: th::Vf2) {
     ed.cam.p = ed.cam.p.add(delta)
 }
 
-fn (ed: ^Editor) processWheel*(pos: th.Vf2, scroll: real32) {
+fn (ed: ^Editor) processWheel*(pos: th::Vf2, scroll: real32) {
     scale := (1 + 0.1 * scroll) * ed.cam.s.x
     
     if scale >  10 * DEFAULT_SCALE {scale =  10 * DEFAULT_SCALE}
@@ -393,17 +393,17 @@ fn (ed: ^Editor) processWheel*(pos: th.Vf2, scroll: real32) {
     ed.cam.s = {scale, -scale}
 }
 
-fn (ed: ^Editor) drawBackground(windowSize: th.Vf2) {
-    canvas.drawRect(0x222222FF, {-10, -10, windowSize.x + 20, windowSize.y + 20})
+fn (ed: ^Editor) drawBackground(windowSize: th::Vf2) {
+    canvas::drawRect(0x222222FF, {-10, -10, windowSize.x + 20, windowSize.y + 20})
 }
 
 fn (ed: ^Editor) drawPolygons() {
     for _, poly in ed.polys {
-        clr := poly.isHole ? th.blue : th.white
+        clr := poly.isHole ? th::blue : th::white
 
         for i, pt1 := 0, ed.pts[poly.vert[len(poly.vert) - 1]]; i < len(poly.vert); i++ {
             pt2 := ed.pts[poly.vert[i]]
-            canvas.drawLine(clr, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
+            canvas::drawLine(clr, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
             pt1 = pt2
         }
     }
@@ -412,7 +412,7 @@ fn (ed: ^Editor) drawPolygons() {
     if len(ed.curPoly.vert) > 0 {
         for i, pt1 := 0, ed.pts[ed.curPoly.vert[0]]; i < len(ed.curPoly.vert) - 1; i++ {
             pt2 := ed.pts[ed.curPoly.vert[i + 1]]
-            canvas.drawLine(th.red, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
+            canvas::drawLine(th::red, pt1.transformed(ed.cam), pt2.transformed(ed.cam), LINE_WIDTH)
             pt1 = pt2
         }
     }   
@@ -420,9 +420,9 @@ fn (ed: ^Editor) drawPolygons() {
 
 fn (ed: ^Editor) drawPoints() {
     for i, pt in ed.pts {
-        clr := i == ed.selectedPt ? th.red : th.green
+        clr := i == ed.selectedPt ? th::red : th::green
         screenPt := pt.transformed(ed.cam)
-        canvas.drawQuad(clr, {
+        canvas::drawQuad(clr, {
             screenPt.add({-POINT_SIZE / 2, -POINT_SIZE / 2}), 
             screenPt.add({ POINT_SIZE / 2, -POINT_SIZE / 2}), 
             screenPt.add({ POINT_SIZE / 2,  POINT_SIZE / 2}), 
@@ -433,7 +433,7 @@ fn (ed: ^Editor) drawPoints() {
 
 fn (ed: ^Editor) drawTriangles() {
     for triIndex, tri in ed.tris {
-        var screenPt: [3]th.Vf2
+        var screenPt: [3]th::Vf2
         for i, ptIndex in tri {
             screenPt[i] = ed.getDisplacedPt(ptIndex).transformed(ed.cam)
         }
@@ -443,14 +443,14 @@ fn (ed: ^Editor) drawTriangles() {
         blue  := 0
         color := (red << 24) | (green << 16) | (blue << 8) | 0xFF
 
-        canvas.drawQuad(color, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
-        canvas.drawLine(0xAAAAAAFF, screenPt[0], screenPt[1], 1)
-        canvas.drawLine(0xAAAAAAFF, screenPt[1], screenPt[2], 1)
-        canvas.drawLine(0xAAAAAAFF, screenPt[2], screenPt[0], 1)
+        canvas::drawQuad(color, {screenPt[0], screenPt[1], screenPt[2], screenPt[2]})
+        canvas::drawLine(0xAAAAAAFF, screenPt[0], screenPt[1], 1)
+        canvas::drawLine(0xAAAAAAFF, screenPt[1], screenPt[2], 1)
+        canvas::drawLine(0xAAAAAAFF, screenPt[2], screenPt[0], 1)
     }
 }
 
-fn (ed: ^Editor) drawForces(ft: font.Font) {
+fn (ed: ^Editor) drawForces(ft: font::Font) {
     for ptIndex, force in ed.forces {
         if force.mag() == 0.0 {continue}
 
@@ -460,30 +460,30 @@ fn (ed: ^Editor) drawForces(ft: font.Font) {
             sgn := sign(force.x * ed.cam.s.x)
 
             screenPt := screenPt0.add({-sgn * VECTOR_LENGTH, 0})
-            canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2,  5}), 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2, -5}), 2)
+            canvas::drawLine(th::yellow, screenPt0, screenPt, 2)
+            canvas::drawLine(th::yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2,  5}), 2)
+            canvas::drawLine(th::yellow, screenPt0, screenPt0.add({-sgn * VECTOR_LENGTH / 2, -5}), 2)
 
             text := sprintf("%g N", force.x)
             textSize := ft.measure(text)
             textPos := screenPt.add({(sgn < 0.0 ? 10.0 : -10.0 - textSize.x), -textSize.y / 2})
             
-            ft.draw(text, textPos, th.yellow, 1)
+            ft.draw(text, textPos, th::yellow, 1)
         }
         
         if force.y != 0 {
             sgn := sign(force.y * ed.cam.s.y)
 
             screenPt := screenPt0.add({0, -sgn * VECTOR_LENGTH})
-            canvas.drawLine(th.yellow, screenPt0, screenPt, 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({ 5, -sgn * VECTOR_LENGTH / 2}), 2)
-            canvas.drawLine(th.yellow, screenPt0, screenPt0.add({-5, -sgn * VECTOR_LENGTH / 2}), 2)            
+            canvas::drawLine(th::yellow, screenPt0, screenPt, 2)
+            canvas::drawLine(th::yellow, screenPt0, screenPt0.add({ 5, -sgn * VECTOR_LENGTH / 2}), 2)
+            canvas::drawLine(th::yellow, screenPt0, screenPt0.add({-5, -sgn * VECTOR_LENGTH / 2}), 2)            
 
             text := sprintf("%g N", force.y)
             textSize := ft.measure(text)
             textPos := screenPt.add({-textSize.x / 2, (sgn < 0.0 ? 10.0 : -10.0 - textSize.y)})
 
-            ft.draw(text, textPos, th.yellow, 1)
+            ft.draw(text, textPos, th::yellow, 1)
         }               
     }
 }
@@ -493,7 +493,7 @@ fn (ed: ^Editor) drawConstraints() {
         if !exists {continue}
 
         screenPt := ed.pts[ptIndex].transformed(ed.cam)
-        canvas.drawQuad(th.magenta, {
+        canvas::drawQuad(th::magenta, {
             screenPt, 
             screenPt.add({-POINT_SIZE, POINT_SIZE * 2}), 
             screenPt.add({ POINT_SIZE, POINT_SIZE * 2}), 
@@ -502,33 +502,33 @@ fn (ed: ^Editor) drawConstraints() {
     }
 }
 
-fn (ed: ^Editor) drawCoordSystem(ft: font.Font) {
-    screenPt0 := th.Vf2{0, 0}.transformed(ed.cam)
+fn (ed: ^Editor) drawCoordSystem(ft: font::Font) {
+    screenPt0 := th::Vf2{0, 0}.transformed(ed.cam)
 
     {
         screenPt := screenPt0.add({sign(ed.cam.s.x) * VECTOR_LENGTH, 0})
-        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+        canvas::drawLine(th::cyan, screenPt0, screenPt, 2)
 
         text := "X"
         textSize := ft.measure(text)
         textPos := screenPt.add({10.0, -textSize.y / 2})
         
-        ft.draw(text, textPos, th.cyan, 1)
+        ft.draw(text, textPos, th::cyan, 1)
     }
 
     {        
         screenPt := screenPt0.add({0, sign(ed.cam.s.y) * VECTOR_LENGTH})
-        canvas.drawLine(th.cyan, screenPt0, screenPt, 2)
+        canvas::drawLine(th::cyan, screenPt0, screenPt, 2)
 
         text := "Y"
         textSize := ft.measure(text)
         textPos := screenPt.add({-textSize.x / 2, -10.0 - textSize.y})
 
-        ft.draw(text, textPos, th.cyan, 1)
+        ft.draw(text, textPos, th::cyan, 1)
     }        
 }
 
-fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
+fn (ed: ^Editor) drawScaleBar(windowSize: th::Vf2, ft: font::Font) {
     worldLen := 0.1
     if ed.cam.s.x > 2 * DEFAULT_SCALE {
         worldLen = 0.01
@@ -537,37 +537,37 @@ fn (ed: ^Editor) drawScaleBar(windowSize: th.Vf2, ft: font.Font) {
     }
     screenLen := worldLen * ed.cam.s.x
 
-    startPt := th.Vf2{windowSize.x - screenLen - 50, windowSize.y - 50}
+    startPt := th::Vf2{windowSize.x - screenLen - 50, windowSize.y - 50}
     endPt := startPt.add({screenLen, 0})
 
-    canvas.drawLine(th.white, startPt, endPt, 1)
+    canvas::drawLine(th::white, startPt, endPt, 1)
 
     text := sprintf("%d mm", round(worldLen * 1000))   // m -> mm
     textSize := ft.measure(text)
     textPos := startPt.add({screenLen / 2 - textSize.x / 2, -10 - textSize.y / 2})
 
-    ft.draw(text, textPos, th.white, 1)
+    ft.draw(text, textPos, th::white, 1)
 }
 
-fn (ed: ^Editor) drawCursorPos(windowSize: th.Vf2, pos: th.Vf2, ft: font.Font) {
+fn (ed: ^Editor) drawCursorPos(windowSize: th::Vf2, pos: th::Vf2, ft: font::Font) {
     worldPos := ed.getWorldPos(pos)
 
     text := sprintf("%d : %d", round(worldPos.x * 1000), round(worldPos.y * 1000))
     textSize := ft.measure(text)
-    textPos := th.Vf2{windowSize.x - 50 - textSize.x, windowSize.y - 30}
+    textPos := th::Vf2{windowSize.x - 50 - textSize.x, windowSize.y - 30}
 
-    ft.draw(text, textPos, th.white, 1)
+    ft.draw(text, textPos, th::white, 1)
 }
 
-fn (ed: ^Editor) drawCursor(pos: th.Vf2) {
+fn (ed: ^Editor) drawCursor(pos: th::Vf2) {
     worldPos := ed.getWorldPos(pos)
     screenPt := worldPos.transformed(ed.cam)
 
-    canvas.drawLine(0xAAAAAAFF, screenPt.add({-POINT_SIZE, 0}), screenPt.add({POINT_SIZE, 0}), 1)
-    canvas.drawLine(0xAAAAAAFF, screenPt.add({0, -POINT_SIZE}), screenPt.add({0, POINT_SIZE}), 1)
+    canvas::drawLine(0xAAAAAAFF, screenPt.add({-POINT_SIZE, 0}), screenPt.add({POINT_SIZE, 0}), 1)
+    canvas::drawLine(0xAAAAAAFF, screenPt.add({0, -POINT_SIZE}), screenPt.add({0, POINT_SIZE}), 1)
 }
 
-fn (ed: ^Editor) draw*(windowSize: th.Vf2, cursorPos: th.Vf2, ft: font.Font) {
+fn (ed: ^Editor) draw*(windowSize: th::Vf2, cursorPos: th::Vf2, ft: font::Font) {
     ed.drawBackground(windowSize)   
 
     if ed.cmd == .CALCULATE {
