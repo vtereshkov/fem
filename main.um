@@ -43,7 +43,7 @@ var (
 
     ed: editor::Editor
 
-    ft: font::Font
+    font: font::Font
 )
 
 fn latchButton(gui: ^ui::Gui, caption: str, isDown: bool, onClick: fn()) {
@@ -67,11 +67,11 @@ fn init*() {
     window::setup("I LOVE FEM", 1300, 600)
 
     var err: std::Err
-    ft, err = font::load("sans.ttf", 16, font::Filter.linear)
+    font, err = font::load("sans.ttf", 16, .linear)
     std::exitif(err)
 
     style := ui::getDefaultStyle()
-    style.ft = ft
+    style.ft = font
     toolbarGui = ui::mk(rect::mk(0, 0, 100, 10000), style)
 
     ed.init()
@@ -93,7 +93,7 @@ fn init*() {
 
         // Construct toolbar GUI
         layout := ui::LayoutFn {
-            gui.box({dimension: 25, growType: ui::BoxGrow.dimension, dir: ui::BoxDir.down})
+            gui.box({dimension: 25, growType: .dimension, dir: .down})
             {                   
                 for cmdIndex, cmdName in cmdNames {
                     cmd := editor::Cmd(cmdIndex)
@@ -200,20 +200,20 @@ fn init*() {
         }
 
         // Process mouse input
-        if input::isJustPressed(input::Key.mouse1) {
+        if input::isJustPressed(.mouse1) {
             ed.processLeftClick(input::getMousePos())
-        } else if input::isJustPressed(input::Key.mouse3) {
+        } else if input::isJustPressed(.mouse3) {
             ed.processRightClick()
-        } else if input::isPressed(input::Key.mouse1) {
+        } else if input::isPressed(.mouse1) {
             ed.processLeftDrag(input::getMousePos())
-        } else if input::isPressed(input::Key.mouse2) {
+        } else if input::isPressed(.mouse2) {
             ed.processMidDrag(input::getMouseDelta())
         } else if input::getMouseScroll().y != 0.0 {
             ed.processWheel(input::getMousePos(), input::getMouseScroll().y)
         }
 
         // Draw GUI
-        ed.draw(window::getDims(), input::getMousePos(), ft)
+        ed.draw(window::getDims(), input::getMousePos(), font)
         toolbarGui.draw(layout)
     })
 }
