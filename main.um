@@ -12,7 +12,7 @@ import (
     "editor.um"
 )
 
-const cmdNames = [10]str{
+cmdNames := []str{
     "Boundary",
     "Hole",
     "Points",
@@ -25,7 +25,7 @@ const cmdNames = [10]str{
     "Clear"
 }
 
-const errStrings = [5]str{
+errStrings := []str{
     "",
     "Bad boundary",
     "Bad force",
