@@ -15,7 +15,7 @@ type (
         isHole: bool
     }
 
-    Triangle = [3]int
+    Triangle = delaunay::Triangle
 
     PointSet = map[int]bool
 
