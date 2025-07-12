@@ -106,8 +106,8 @@ fn getBoundary(tris: TriangleSet): []Edge {
         for _, edge in edges {
             isBoundaryEdge := true
 
-            for otherTri, exists in tris {
-                if exists && otherTri != tri && otherTri.hasEdge(edge) {
+            for otherTri, otherExists in tris {
+                if otherExists && otherTri != tri && otherTri.hasEdge(edge) {
                     isBoundaryEdge = false
                     break
                 }
@@ -131,8 +131,8 @@ fn getNeighbors(tris: TriangleSet): TriangleNeighbors {
         edges := tri.getEdges()
 
         for edgeIndex, edge in edges {
-            for otherTri, exists in tris {
-                if exists && otherTri != tri && otherTri.hasEdge(edge) {
+            for otherTri, otherExists in tris {
+                if otherExists && otherTri != tri && otherTri.hasEdge(edge) {
                     neighbors[tri][edgeIndex] = otherTri
                     break
                 }
